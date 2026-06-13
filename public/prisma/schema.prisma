@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+  MODERATOR
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionStatus {
+  DRAFT
+  SUBMITTED
+  CHANGES_REQUIRED
+  APPROVED
+  REJECTED
+  PUBLISHED
+}
+
+enum ReviewStatus {
+  APPROVED
+  REJECTED
+  CHANGES_REQUIRED
+}
+
+model User {
+  id         String     @id @default(cuid())
+  supabaseId String?    @unique
+  name       String
+  email      String     @unique
+  role       UserRole
+  domain     String?
+  department String?
+  semester   Int?
+  status     UserStatus @default(ACTIVE)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  questionsCreated Question[]       @relation("CreatedBy")
+  reviews          Review[]
+  bookmarks        Bookmark[]
+  solvedQuestions  SolvedQuestion[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+
+  @@index([role])
+  @@index([status])
+}
+
+model Topic {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subtopics Subtopic[]
+  questions Question[]
+}
+
+model Subtopic {
+  id        String   @id @default(cuid())
+  name      String
+  topicId   String
+  topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions Question[]
+
+  @@unique([topicId, name])
+  @@index([topicId])
+}
+
+model Question {
+  id                      String         @id @default(cuid())
+  title                   String
+  statement               String         @db.Text
+  difficulty              Difficulty
+  topicId                 String
+  topic                   Topic          @relation(fields: [topicId], references: [id])
+  subtopicId              String?
+  subtopic                Subtopic?      @relation(fields: [subtopicId], references: [id])
+  constraints             String?        @db.Text
+  inputFormat             String?        @db.Text
+  outputFormat            String?        @db.Text
+  sampleInput             String?        @db.Text
+  sampleOutput            String?        @db.Text
+  hiddenTestCases         String?        @db.Text
+  solutionApproach        String?        @db.Text
+  referenceLinks          String[]       @default([])
+  tags                    String[]       @default([])
+  companyTags             String[]       @default([])
+  expectedTimeComplexity  String?
+  expectedSpaceComplexity String?
+  status                  QuestionStatus @default(DRAFT)
+  createdById             String
+  createdBy               User           @relation("CreatedBy", fields: [createdById], references: [id])
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  reviews   Review[]
+  bookmarks Bookmark[]
+  solvedBy  SolvedQuestion[]
+
+  @@index([status])
+  @@index([difficulty])
+  @@index([topicId])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+model Review {
+  id          String       @id @default(cuid())
+  questionId  String
+  question    Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  moderatorId String
+  moderator   User         @relation(fields: [moderatorId], references: [id])
+  comments    String?      @db.Text
+  status      ReviewStatus
+  reviewedAt  DateTime     @default(now())
+
+  @@index([questionId])
+  @@index([moderatorId])
+  @@index([reviewedAt])
+}
+
+model Bookmark {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([studentId, questionId])
+  @@index([studentId])
+}
+
+model SolvedQuestion {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  solvedAt   DateTime @default(now())
+
+  @@unique([studentId, questionId])
+  @@index([studentId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  module    String
+  oldValue  Json?
+  newValue  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([module])
+  @@index([createdAt])
+}

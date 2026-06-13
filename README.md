@@ -1,36 +1,187 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Problem Repository & Analytics Portal
 
-## Getting Started
+A production-ready web application for universities to manage programming and technical problems submitted by faculty, with role-based workflows, analytics dashboards, and reporting.
 
-First, run the development server:
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js 15+ (App Router), TypeScript, Tailwind CSS, shadcn/ui |
+| Backend | Next.js API Routes & Server Actions |
+| Database | PostgreSQL (Supabase) |
+| Auth | Supabase Auth |
+| ORM | Prisma |
+| Charts | Recharts |
+| State | Zustand |
+| Forms | React Hook Form + Zod |
+| Deployment | Vercel |
+
+## Features
+
+- **Role-based access**: Admin, Staff, Moderator, Student
+- **Question lifecycle**: Draft → Submit → Review → Publish/Reject/Changes Required
+- **Analytics dashboards** with Recharts for all roles
+- **Global search** with filters and pagination
+- **Reports**: PDF & Excel export (Admin)
+- **Notifications**: In-app notification system
+- **Audit logs**: Full activity tracking
+- **Dark mode**, responsive layout, sidebar navigation
+
+## Project Structure
+
+```
+src/
+├── app/                    # App Router pages & API routes
+│   ├── (auth)/             # Login, forgot/reset password
+│   ├── (dashboard)/        # Role-based dashboards
+│   ├── actions/            # Server Actions
+│   └── api/                # REST API endpoints
+├── components/
+│   ├── ui/                 # shadcn/ui components
+│   ├── dashboard/          # Layout, header, shared UI
+│   ├── questions/          # Question management components
+│   └── analytics/          # Chart components
+├── lib/                    # Prisma, Supabase, auth utilities
+├── services/               # Business logic layer
+├── store/                  # Zustand stores
+├── types/                  # TypeScript types
+├── validations/            # Zod schemas
+└── hooks/                  # Custom React hooks
+prisma/
+├── schema.prisma           # Database schema
+└── seed.ts                 # Seed data
+supabase/
+└── rls-policies.sql        # Row Level Security policies
+```
+
+## Prerequisites
+
+- Node.js 20+
+- npm or pnpm
+- Supabase account ([supabase.com](https://supabase.com))
+- Vercel account (for deployment)
+
+## Setup Instructions
+
+### 1. Clone and install
+
+```bash
+cd problem-repo-portal
+npm install
+```
+
+### 2. Create Supabase project
+
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard) and create a new project.
+2. Copy your **Project URL**, **anon key**, and **service role key** from Settings → API.
+3. Copy your **Database connection string** from Settings → Database.
+
+### 3. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```env
+DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true"
+DIRECT_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres"
+
+NEXT_PUBLIC_SUPABASE_URL="https://[your-ref].supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
+
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+### 4. Configure Supabase Auth
+
+In Supabase Dashboard → Authentication → URL Configuration:
+
+- **Site URL**: `http://localhost:3000`
+- **Redirect URLs**: `http://localhost:3000/auth/callback`, `http://localhost:3000/reset-password`
+
+Enable Email provider under Authentication → Providers.
+
+### 5. Run database migrations
+
+```bash
+npm run db:migrate
+```
+
+When prompted, name the migration `init`.
+
+### 6. Apply RLS policies (optional but recommended)
+
+Run the SQL in `supabase/rls-policies.sql` in the Supabase SQL Editor.
+
+### 7. Seed the database
+
+```bash
+npm run db:seed
+```
+
+Default accounts:
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@university.edu | Admin@12345 |
+| Staff | staff@university.edu | Staff@12345 |
+| Moderator | moderator@university.edu | Mod@12345 |
+| Student | student@university.edu | Student@12345 |
+
+### 8. Start development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) and sign in with any seed account.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment (Vercel)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Push the repo to GitHub.
+2. Import the project in [Vercel](https://vercel.com).
+3. Add all environment variables from `.env`.
+4. Set `NEXT_PUBLIC_APP_URL` to your production URL.
+5. Update Supabase Auth redirect URLs to include your Vercel domain.
+6. Deploy.
 
-## Learn More
+Build command: `npm run build`  
+Install command: `npm install`
 
-To learn more about Next.js, take a look at the following resources:
+## Role Permissions
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Feature | Admin | Staff | Moderator | Student |
+|---------|-------|-------|-----------|---------|
+| Manage users | ✅ | ❌ | ❌ | ❌ |
+| Create questions | ❌ | ✅ | ❌ | ❌ |
+| Review questions | ❌ | ❌ | ✅ | ❌ |
+| Browse published | ✅ | ✅ | ✅ | ✅ |
+| Bookmarks / Solved | ❌ | ❌ | ❌ | ✅ |
+| Export reports | ✅ | ❌ | ❌ | ❌ |
+| View audit logs | ✅ | ❌ | ❌ | ❌ |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## API Endpoints
 
-## Deploy on Vercel
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/search` | Global question search with filters |
+| GET | `/api/notifications` | User notifications |
+| PATCH | `/api/notifications/[id]/read` | Mark notification read |
+| GET | `/api/reports/[type]?format=pdf\|xlsx` | Export reports (Admin) |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev          # Start dev server
+npm run build        # Production build
+npm run db:migrate   # Run Prisma migrations
+npm run db:seed      # Seed database
+npm run db:studio    # Open Prisma Studio
+```
+
+## License
+
+

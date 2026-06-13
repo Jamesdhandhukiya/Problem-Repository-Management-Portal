@@ -1,0 +1,137 @@
+import { UserRole, UserStatus } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { createServiceClient } from "@/lib/supabase/server";
+import { createAuditLog } from "@/services/audit.service";
+
+export type CreateUserInput = {
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  domain?: string;
+  department?: string;
+  semester?: number;
+};
+
+export async function createUser(input: CreateUserInput, adminId: string) {
+  const supabase = await createServiceClient();
+
+  const { data: authData, error: authError } =
+    await supabase.auth.admin.createUser({
+      email: input.email,
+      password: input.password,
+      email_confirm: true,
+      app_metadata: { role: input.role },
+    });
+
+  if (authError || !authData.user) {
+    throw new Error(authError?.message ?? "Failed to create auth user");
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      supabaseId: authData.user.id,
+      name: input.name,
+      email: input.email,
+      role: input.role,
+      domain: input.domain,
+      department: input.department,
+      semester: input.semester,
+      status: "ACTIVE",
+    },
+  });
+
+  await createAuditLog({
+    userId: adminId,
+    action: "CREATE",
+    module: "USER",
+    newValue: { id: user.id, email: user.email, role: user.role },
+  });
+
+  return user;
+}
+
+export async function updateUser(
+  userId: string,
+  data: { 
+    name?: string; 
+    role?: UserRole; 
+    status?: UserStatus; 
+    domain?: string | null;
+    department?: string | null;
+    semester?: number | null;
+  },
+  adminId: string
+) {
+  const existing = await prisma.user.findUnique({ where: { id: userId } });
+  if (!existing) throw new Error("User not found");
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data,
+  });
+
+  if (data.role && existing.supabaseId) {
+    const supabase = await createServiceClient();
+    await supabase.auth.admin.updateUserById(existing.supabaseId, {
+      app_metadata: { role: data.role },
+    });
+  }
+
+  await createAuditLog({
+    userId: adminId,
+    action: "EDIT",
+    module: "USER",
+    oldValue: { id: existing.id, name: existing.name, role: existing.role, status: existing.status },
+    newValue: { id: user.id, name: user.name, role: user.role, status: user.status },
+  });
+
+  return user;
+}
+
+export async function getUsers(filters?: {
+  role?: UserRole;
+  status?: UserStatus;
+  search?: string;
+}) {
+  const where = {
+    ...(filters?.role ? { role: filters.role } : {}),
+    ...(filters?.status ? { status: filters.status } : {}),
+    ...(filters?.search
+      ? {
+          OR: [
+            { name: { contains: filters.search, mode: "insensitive" as const } },
+            { email: { contains: filters.search, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  return prisma.user.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    include: { _count: { select: { questionsCreated: true } } },
+  });
+}
+
+export async function syncUserFromAuth(
+  supabaseId: string,
+  email: string,
+  name: string,
+  role: UserRole
+) {
+  return prisma.user.upsert({
+    where: { email },
+    update: { supabaseId, name },
+    create: { supabaseId, email, name, role, status: "ACTIVE" },
+  });
+}
+
+export async function logLogin(userId: string) {
+  await createAuditLog({
+    userId,
+    action: "LOGIN",
+    module: "AUTH",
+    newValue: { timestamp: new Date().toISOString() },
+  });
+}
