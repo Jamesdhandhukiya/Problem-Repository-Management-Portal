@@ -111,15 +111,14 @@ export function ReviewPanel({
                   const submissionCount = q.reviews?.length ? q.reviews.length + 1 : 1;
 
                   const isCoding = Boolean(
-                    q.inputFormat || 
-                    q.outputFormat || 
-                    q.sampleInput || 
-                    q.sampleOutput || 
-                    q.hiddenTestCases ||
-                    q.expectedTimeComplexity ||
-                    q.expectedSpaceComplexity ||
-                    q.constraints ||
-                    !['aptitude', 'theory', 'cs core', 'fundamentals'].includes(q.topic.name.toLowerCase())
+                    q.inputFormat?.trim() || 
+                    q.outputFormat?.trim() || 
+                    q.sampleInput?.trim() || 
+                    q.sampleOutput?.trim() || 
+                    q.hiddenTestCases?.trim() ||
+                    q.constraints?.trim() ||
+                    q.expectedTimeComplexity?.trim() ||
+                    q.expectedSpaceComplexity?.trim()
                   );
                   const questionType = isCoding ? "Coding" : "Theory";
 
@@ -198,15 +197,14 @@ export function ReviewPanel({
                   );
                   
                   const isCoding = Boolean(
-                    q.inputFormat || 
-                    q.outputFormat || 
-                    q.sampleInput || 
-                    q.sampleOutput || 
-                    q.hiddenTestCases ||
-                    q.expectedTimeComplexity ||
-                    q.expectedSpaceComplexity ||
-                    q.constraints ||
-                    !['aptitude', 'theory', 'cs core', 'fundamentals'].includes(q.topic.name.toLowerCase())
+                    q.inputFormat?.trim() || 
+                    q.outputFormat?.trim() || 
+                    q.sampleInput?.trim() || 
+                    q.sampleOutput?.trim() || 
+                    q.hiddenTestCases?.trim() ||
+                    q.constraints?.trim() ||
+                    q.expectedTimeComplexity?.trim() ||
+                    q.expectedSpaceComplexity?.trim()
                   );
                   const questionType = isCoding ? "Coding" : "Theory";
                   return (

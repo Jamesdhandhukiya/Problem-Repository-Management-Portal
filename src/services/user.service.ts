@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { createAuditLog } from "@/services/audit.service";
 
 export type CreateUserInput = {
+  id?: string;
   name: string;
   email: string;
   password: string;
@@ -16,10 +17,12 @@ export type CreateUserInput = {
 export async function createUser(input: CreateUserInput, adminId: string) {
   const supabase = await createServiceClient();
 
+  const finalPassword = input.password.length < 6 ? input.password.padEnd(6, '0') : input.password;
+
   const { data: authData, error: authError } =
     await supabase.auth.admin.createUser({
       email: input.email,
-      password: input.password,
+      password: finalPassword,
       email_confirm: true,
       app_metadata: { role: input.role },
     });
@@ -30,6 +33,7 @@ export async function createUser(input: CreateUserInput, adminId: string) {
 
   const user = await prisma.user.create({
     data: {
+      id: input.id,
       supabaseId: authData.user.id,
       name: input.name,
       email: input.email,
@@ -87,6 +91,54 @@ export async function updateUser(
   });
 
   return user;
+}
+
+export async function deleteUser(userId: string, adminId: string) {
+  const existing = await prisma.user.findUnique({ where: { id: userId } });
+  if (!existing) throw new Error("User not found");
+
+  await prisma.$transaction(async (tx) => {
+    // Delete bookmarks
+    await tx.bookmark.deleteMany({ where: { studentId: userId } });
+    // Delete solved questions
+    await tx.solvedQuestion.deleteMany({ where: { studentId: userId } });
+    // Delete notifications
+    await tx.notification.deleteMany({ where: { userId } });
+    
+    // Delete reviews by this user
+    await tx.review.deleteMany({ where: { moderatorId: userId } });
+    
+    // For questions created by this user:
+    const userQuestions = await tx.question.findMany({ where: { createdById: userId } });
+    const questionIds = userQuestions.map((q) => q.id);
+    if (questionIds.length > 0) {
+      await tx.review.deleteMany({ where: { questionId: { in: questionIds } } });
+      await tx.bookmark.deleteMany({ where: { questionId: { in: questionIds } } });
+      await tx.solvedQuestion.deleteMany({ where: { questionId: { in: questionIds } } });
+      await tx.question.deleteMany({ where: { createdById: userId } });
+    }
+
+    // Delete the user record
+    await tx.user.delete({ where: { id: userId } });
+  });
+
+  // Delete from Supabase Auth
+  if (existing.supabaseId) {
+    const supabase = await createServiceClient();
+    const { error: authError } = await supabase.auth.admin.deleteUser(existing.supabaseId);
+    if (authError && authError.status !== 404) {
+      throw new Error(authError.message);
+    }
+  }
+
+  await createAuditLog({
+    userId: adminId,
+    action: "DELETE",
+    module: "USER",
+    oldValue: { id: existing.id, email: existing.email, role: existing.role },
+  });
+
+  return existing;
 }
 
 export async function getUsers(filters?: {

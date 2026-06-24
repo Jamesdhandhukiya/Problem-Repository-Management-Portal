@@ -4,10 +4,10 @@ import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Plus, UserPlus, ChevronDown, ChevronRight, ArrowLeft, Upload } from "lucide-react";
+import { Loader2, Plus, UserPlus, Edit, Trash2, ChevronDown, ChevronRight, Upload, Search, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@prisma/client";
-import { createUserAction } from "@/app/actions";
+import { createUserAction, updateUserAction, deleteUserAction } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,31 +38,188 @@ import {
 } from "@/components/ui/table";
 import { createUserSchema, type CreateUserInput } from "@/validations";
 
-type UserWithCount = User & { _count?: { questionsCreated: number } };
+const DEPARTMENTS = ["DCS", "DCE", "DIT"] as const;
+const SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
-const DEPARTMENTS = ["CSE", "CE", "IT"];
-const SEMESTERS = [1, 2, 3, 4, 5, 6];
-const DOMAINS = [
-  "Web Development",
-  "Full Stack Development",
-  "AI/ML",
-  "Data Science",
-  "Cloud Computing",
-  "DevOps",
-  "Cybersecurity",
-  "Mobile App Development",
-  "UI/UX Design",
-  "IoT",
-];
+function parseCSV(text: string, delimiter: string): string[][] {
+  const result: string[][] = [];
+  let row: string[] = [];
+  let currentVal = "";
+  let insideQuotes = false;
 
-export function StudentManagementTable({ users }: { users: UserWithCount[] }) {
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        currentVal += '"';
+        i++; // skip next quote
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if (char === delimiter && !insideQuotes) {
+      row.push(currentVal);
+      currentVal = "";
+    } else if ((char === '\r' || char === '\n') && !insideQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++; // skip \n
+      }
+      row.push(currentVal);
+      result.push(row);
+      row = [];
+      currentVal = "";
+    } else {
+      currentVal += char;
+    }
+  }
+  if (row.length > 0 || currentVal !== "") {
+    row.push(currentVal);
+    result.push(row);
+  }
+  return result;
+}
+
+export function StudentManagementTable({ users }: { users: User[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const [selectedDept, setSelectedDept] = useState<string | null>(null);
-  const [selectedSem, setSelectedSem] = useState<number | null>(null);
-  const [expandedDomains, setExpandedDomains] = useState<Record<string, boolean>>({});
+  // Search & filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDept, setSelectedDept] = useState("ALL");
+  const [selectedSem, setSelectedSem] = useState("ALL");
+
+  // Controlled states for editing profile
+  const [editDepartment, setEditDepartment] = useState<string>("");
+  const [editSemester, setEditSemester] = useState<string>("");
+
+  const toggleDept = (dept: string) => {
+    setExpandedDepts((prev) => ({ ...prev, [dept]: !prev[dept] }));
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const copyToClipboard = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiedId(id);
+    toast.success("ID copied to clipboard");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    try {
+      const text = await file.text();
+      
+      let delimiter = ",";
+      if (text.includes(";") && !text.includes(",")) {
+        delimiter = ";";
+      } else if (text.includes("\t") && !text.includes(",")) {
+        delimiter = "\t";
+      }
+
+      const parsedRows = parseCSV(text, delimiter);
+      if (parsedRows.length <= 1) {
+        toast.error("CSV file is empty or has no data rows");
+        setLoading(false);
+        return;
+      }
+
+      const headers = parsedRows[0].map((h) => {
+        let trimmed = h.trim().toLowerCase();
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+          trimmed = trimmed.substring(1, trimmed.length - 1);
+        }
+        return trimmed;
+      });
+
+      let successCount = 0;
+      let errorCount = 0;
+      let firstError = "";
+
+      for (let i = 1; i < parsedRows.length; i++) {
+        const values = parsedRows[i].map((v) => {
+          let trimmed = v.trim();
+          if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+            trimmed = trimmed.substring(1, trimmed.length - 1);
+          }
+          return trimmed;
+        });
+
+        // Skip empty rows
+        if (values.length === 0 || (values.length === 1 && values[0] === "")) {
+          continue;
+        }
+
+        const data: any = { role: "STUDENT" };
+
+        headers.forEach((h, idx) => {
+          const val = values[idx] || "";
+          const headerClean = h.replace(/[\r\n\t]/g, "").trim();
+
+          if (headerClean === "id" || headerClean === "student id" || headerClean === "enrollment id" || headerClean === "enrollment number") {
+            data.id = val;
+          }
+          if (headerClean === "name" || headerClean === "student name" || headerClean === "full name") {
+            data.name = val;
+          }
+          if (headerClean === "email" || headerClean === "email address" || headerClean === "email id") {
+            data.email = val;
+          }
+          if (headerClean === "password" || headerClean === "pass") {
+            data.password = val;
+          }
+          if (headerClean === "department" || headerClean === "dept") {
+            data.department = val;
+          }
+          if (headerClean === "semester" || headerClean === "sem") {
+            data.semester = parseInt(val, 10) || undefined;
+          }
+        });
+
+        if (!data.name || !data.email || !data.password || !data.id) {
+          if (!firstError) {
+            const missing = [];
+            if (!data.id) missing.push("student id");
+            if (!data.name) missing.push("name");
+            if (!data.email) missing.push("email");
+            if (!data.password) missing.push("password");
+            firstError = `Missing: ${missing.join(", ")}. Headers parsed: ${JSON.stringify(headers)}. Row ${i} values: ${JSON.stringify(values)}`;
+          }
+          errorCount++;
+          continue;
+        }
+
+        const res = await createUserAction(data as unknown as CreateUserInput);
+        if (res.error) {
+          console.error(`Error importing row ${i}:`, res.error);
+          if (!firstError) firstError = res.error;
+          errorCount++;
+        } else {
+          successCount++;
+        }
+      }
+
+      if (errorCount > 0) {
+        toast.error(`Import completed: ${successCount} added, ${errorCount} failed. Error: ${firstError}`);
+      } else {
+        toast.success(`Import completed: ${successCount} students added successfully.`);
+      }
+      router.refresh();
+    } catch (err: any) {
+      toast.error("Failed to parse CSV: " + err.message);
+    }
+    setLoading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const {
     register,
@@ -72,88 +229,46 @@ export function StudentManagementTable({ users }: { users: UserWithCount[] }) {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(createUserSchema),
-    defaultValues: { role: "STUDENT" },
+    defaultValues: { role: "STUDENT" as any, domain: "", department: "", semester: 1 },
   });
 
-  const students = users.filter((u) => u.role === "STUDENT");
+  const studentUsers = users.filter((u) => u.role === "STUDENT");
 
-  // Filter students based on selection
+  // Filter students by search query (name, ID, email) and department/semester filters
   const filteredStudents = useMemo(() => {
-    return students.filter(
-      (s) => s.department === selectedDept && s.semester === selectedSem
-    );
-  }, [students, selectedDept, selectedSem]);
+    return studentUsers.filter((user) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        q === "" ||
+        user.name.toLowerCase().includes(q) ||
+        user.email.toLowerCase().includes(q) ||
+        user.id.toLowerCase().includes(q);
 
-  // Group filtered students by domain
+      const matchesDept =
+        selectedDept === "ALL" ||
+        user.department === selectedDept;
+
+      const matchesSem =
+        selectedSem === "ALL" ||
+        (user.semester && String(user.semester) === selectedSem);
+
+      return matchesSearch && matchesDept && matchesSem;
+    });
+  }, [studentUsers, searchQuery, selectedDept, selectedSem]);
+
   const groupedStudents = useMemo(() => {
-    const groups: Record<string, UserWithCount[]> = {};
-    filteredStudents.forEach((student) => {
-      const domain = student.domain || "Unassigned";
-      if (!groups[domain]) groups[domain] = [];
-      groups[domain].push(student);
+    const groups: Record<string, User[]> = {};
+    filteredStudents.forEach((user) => {
+      const dept = user.department || "Unassigned";
+      if (!groups[dept]) groups[dept] = [];
+      groups[dept].push(user);
     });
     return groups;
   }, [filteredStudents]);
 
-  const toggleDomain = (domain: string) => {
-    setExpandedDomains((prev) => ({ ...prev, [domain]: !prev[domain] }));
-  };
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setLoading(true);
-    try {
-      const text = await file.text();
-      const lines = text.split("\n").filter((l) => l.trim().length > 0);
-      if (lines.length <= 1) {
-        toast.error("CSV file is empty or has no data rows");
-        setLoading(false);
-        return;
-      }
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-
-      let successCount = 0;
-      let errorCount = 0;
-
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(",").map((v) => v.trim());
-        const data: any = { role: "STUDENT" };
-
-        headers.forEach((h, idx) => {
-          if (h === "name") data.name = values[idx];
-          if (h === "email") data.email = values[idx];
-          if (h === "password") data.password = values[idx];
-          if (h === "department") data.department = values[idx];
-          if (h === "semester") data.semester = parseInt(values[idx], 10);
-          if (h === "domain") data.domain = values[idx];
-        });
-
-        if (!data.name || !data.email || !data.password) {
-          errorCount++;
-          continue;
-        }
-
-        const res = await createUserAction(data as unknown as CreateUserInput);
-        if (res.error) errorCount++;
-        else successCount++;
-      }
-
-      toast.success(`Import completed: ${successCount} added, ${errorCount} failed`);
-      router.refresh();
-    } catch (err: any) {
-      toast.error("Failed to parse CSV: " + err.message);
-    }
-    setLoading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
   async function onCreate(data: CreateUserInput) {
     setLoading(true);
-    const result = await createUserAction({ ...data, role: "STUDENT" });
+    const result = await createUserAction(data);
     setLoading(false);
 
     if (result.error) {
@@ -167,12 +282,59 @@ export function StudentManagementTable({ users }: { users: UserWithCount[] }) {
     router.refresh();
   }
 
+  async function onEdit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!selectedUser) return;
+    setLoading(true);
+    const formData = new FormData(e.currentTarget);
+    const department = formData.get("department") as string;
+    const semesterVal = formData.get("semester") as string;
+    const name = formData.get("name") as string;
+    const status = formData.get("status") as User["status"];
+
+    const result = await updateUserAction(selectedUser.id, { 
+      department: department || null,
+      semester: semesterVal ? parseInt(semesterVal, 10) : null,
+      name,
+      status
+    });
+    
+    setLoading(false);
+
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+
+    toast.success("Student updated successfully");
+    setEditOpen(false);
+    setSelectedUser(null);
+    router.refresh();
+  }
+
+  const handleDelete = async (userId: string, userName: string) => {
+    if (!confirm(`Are you sure you want to delete student ${userName}? This action cannot be undone.`)) {
+      return;
+    }
+    setLoading(true);
+    const result = await deleteUserAction(userId);
+    setLoading(false);
+
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+
+    toast.success("Student deleted successfully");
+    router.refresh();
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Student Management</h1>
-          <p className="text-muted-foreground">Manage student accounts by department and semester.</p>
+          <p className="text-muted-foreground">Manage student portal access by department and semester.</p>
         </div>
         <div className="flex items-center gap-2">
           <input 
@@ -191,41 +353,49 @@ export function StudentManagementTable({ users }: { users: UserWithCount[] }) {
               <UserPlus className="mr-2 h-4 w-4" />
               Add Student
             </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Student</DialogTitle>
-              <DialogDescription>
-                Create a student account.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit((data) => onCreate(data as unknown as CreateUserInput))} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input {...register("name")} />
-                {errors.name && (
-                  <p className="text-sm text-destructive">{errors.name.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" {...register("email")} />
-                {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Password</Label>
-                <Input type="password" {...register("password")} />
-                {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password.message}</p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Student</DialogTitle>
+                <DialogDescription>
+                  Create a new student portal account.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit((data) => onCreate(data as unknown as CreateUserInput))} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Student ID / Enrollment ID</Label>
+                  <Input {...register("id")} required placeholder="e.g. 23DCS023" />
+                  {errors.id && (
+                    <p className="text-sm text-destructive">{errors.id.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Name</Label>
+                  <Input {...register("name")} required placeholder="e.g. Rahul Patel" />
+                  {errors.name && (
+                    <p className="text-sm text-destructive">{errors.name.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" {...register("email")} required placeholder="e.g. rahul.ce@charusat.ac.in" />
+                  {errors.email && (
+                    <p className="text-sm text-destructive">{errors.email.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Password</Label>
+                  <Input type="password" {...register("password")} required placeholder="4+ characters" />
+                  {errors.password && (
+                    <p className="text-sm text-destructive">{errors.password.message}</p>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <Label>Department</Label>
-                  <Select onValueChange={(v) => setValue("department", v as string)}>
+                  <Select
+                    onValueChange={(v) => setValue("department", v as string)}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Department" />
+                      <SelectValue placeholder="Select Department" />
                     </SelectTrigger>
                     <SelectContent>
                       {DEPARTMENTS.map((d) => (
@@ -236,146 +406,259 @@ export function StudentManagementTable({ users }: { users: UserWithCount[] }) {
                 </div>
                 <div className="space-y-2">
                   <Label>Semester</Label>
-                  <Select onValueChange={(v) => setValue("semester", parseInt(v as string, 10))}>
+                  <Select
+                    onValueChange={(v) => setValue("semester", parseInt(v as string, 10))}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Semester" />
+                      <SelectValue placeholder="Select Semester" />
                     </SelectTrigger>
                     <SelectContent>
                       {SEMESTERS.map((s) => (
-                        <SelectItem key={s} value={s.toString()}>{s}</SelectItem>
+                        <SelectItem key={s} value={String(s)}>Semester {s}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Student
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Search and filter controls */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, ID, or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="w-full sm:w-[180px]">
+          <Select value={selectedDept} onValueChange={(v) => setSelectedDept(v || "ALL")}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filter Department" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Departments</SelectItem>
+              {DEPARTMENTS.map((dept) => (
+                <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-full sm:w-[160px]">
+          <Select value={selectedSem} onValueChange={(v) => setSelectedSem(v || "ALL")}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filter Semester" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Semesters</SelectItem>
+              {SEMESTERS.map((sem) => (
+                <SelectItem key={sem} value={String(sem)}>Semester {sem}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Grouped Table View */}
+      <div className="space-y-4">
+        {Object.keys(groupedStudents).length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground border rounded-xl bg-card">
+            No students found matching your filters.
+          </div>
+        ) : (
+          Object.entries(groupedStudents).map(([dept, students]) => (
+            <div key={dept} className="rounded-xl border bg-card text-card-foreground shadow-sm">
+              <div 
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-accent/50"
+                onClick={() => toggleDept(dept)}
+              >
+                <div className="flex items-center gap-2">
+                  {(expandedDepts[dept] || searchQuery.trim() !== "" || selectedDept !== "ALL" || selectedSem !== "ALL") ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                  <h3 className="font-semibold text-lg">{dept}</h3>
+                  <Badge variant="secondary">{students.length}</Badge>
+                </div>
+              </div>
+              
+              {(expandedDepts[dept] || searchQuery.trim() !== "" || selectedDept !== "ALL" || selectedSem !== "ALL") && (
+                <div className="p-0 border-t">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[120px]">Student ID</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Department</TableHead>
+                        <TableHead>Semester</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="w-[100px] text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {students.map((student) => (
+                        <TableRow key={student.id}>
+                          <TableCell className="font-mono text-xs max-w-[120px] truncate">
+                            <div className="flex items-center gap-1">
+                              <span className="truncate" title={student.id}>{student.id}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 hover:bg-muted"
+                                onClick={() => copyToClipboard(student.id)}
+                              >
+                                {copiedId === student.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium">{student.name}</TableCell>
+                          <TableCell>{student.email}</TableCell>
+                          <TableCell>
+                            {student.department ? (
+                              <Badge variant="secondary">{student.department}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">Unassigned</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {student.semester ? (
+                              <Badge variant="outline">Sem {student.semester}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">Unassigned</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={student.status === "ACTIVE" ? "default" : "secondary"}>
+                              {student.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedUser(student);
+                                  setEditDepartment(student.department || "");
+                                  setEditSemester(student.semester ? String(student.semester) : "");
+                                  setEditOpen(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:bg-destructive/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(student.id, student.name);
+                                }}
+                                disabled={loading}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Student</DialogTitle>
+            <DialogDescription>
+              Update details for {selectedUser?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <form onSubmit={onEdit} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input name="name" defaultValue={selectedUser.name} required />
               </div>
               <div className="space-y-2">
-                <Label>Domain</Label>
-                <Select onValueChange={(v) => setValue("domain", v as string)}>
+                <Label>Email</Label>
+                <Input value={selectedUser.email} disabled />
+              </div>
+              <div className="space-y-2">
+                <Label>Department</Label>
+                <Select 
+                  name="department" 
+                  value={editDepartment}
+                  onValueChange={(v) => setEditDepartment(v || "")}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Domain" />
+                    <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
-                    {DOMAINS.map((d) => (
+                    {DEPARTMENTS.map((d) => (
                       <SelectItem key={d} value={d}>{d}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2 hidden">
-                <Input type="hidden" {...register("role")} value="STUDENT" />
+              <div className="space-y-2">
+                <Label>Semester</Label>
+                <Select 
+                  name="semester" 
+                  value={editSemester}
+                  onValueChange={(v) => setEditSemester(v || "")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Semester" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SEMESTERS.map((s) => (
+                      <SelectItem key={s} value={String(s)}>Semester {s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select 
+                  name="status" 
+                  defaultValue={selectedUser.status}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                    <SelectItem value="DISABLED">DISABLED</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Student
+                  Save Changes
                 </Button>
               </DialogFooter>
             </form>
-          </DialogContent>
-        </Dialog>
-        </div>
-      </div>
-
-      {!selectedDept ? (
-        <div className="space-y-4 pt-4">
-          <h2 className="text-xl font-semibold">Select Department</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {DEPARTMENTS.map((dept) => (
-              <Button
-                key={dept}
-                variant="outline"
-                className="h-24 text-lg font-medium"
-                onClick={() => setSelectedDept(dept)}
-              >
-                {dept} Department
-              </Button>
-            ))}
-          </div>
-        </div>
-      ) : !selectedSem ? (
-        <div className="space-y-4 pt-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => setSelectedDept(null)}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h2 className="text-xl font-semibold">{selectedDept} - Select Semester</h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {SEMESTERS.map((sem) => (
-              <Button
-                key={sem}
-                variant="outline"
-                className="h-20 text-lg font-medium"
-                onClick={() => setSelectedSem(sem)}
-              >
-                Semester {sem}
-              </Button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4 pt-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => setSelectedSem(null)}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h2 className="text-xl font-semibold">
-              {selectedDept} - Semester {selectedSem} Students
-            </h2>
-          </div>
-          
-          {Object.keys(groupedStudents).length === 0 ? (
-            <div className="text-center py-10 rounded-xl border border-dashed">
-              <p className="text-muted-foreground">No students found for this department and semester.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {Object.entries(groupedStudents).map(([domain, groupUsers]) => (
-                <div key={domain} className="rounded-xl border bg-card text-card-foreground shadow-sm">
-                  <div 
-                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-accent/50"
-                    onClick={() => toggleDomain(domain)}
-                  >
-                    <div className="flex items-center gap-2">
-                      {expandedDomains[domain] ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                      <h3 className="font-semibold text-lg">{domain}</h3>
-                      <Badge variant="secondary">{groupUsers.length}</Badge>
-                    </div>
-                  </div>
-                  
-                  {expandedDomains[domain] && (
-                    <div className="p-0 border-t">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Department</TableHead>
-                            <TableHead>Semester</TableHead>
-                            <TableHead>Domain</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {groupUsers.map((user) => (
-                            <TableRow key={user.id}>
-                              <TableCell className="font-medium">{user.name}</TableCell>
-                              <TableCell>{user.email}</TableCell>
-                              <TableCell>{user.department}</TableCell>
-                              <TableCell>{user.semester}</TableCell>
-                              <TableCell>{user.domain}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
           )}
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

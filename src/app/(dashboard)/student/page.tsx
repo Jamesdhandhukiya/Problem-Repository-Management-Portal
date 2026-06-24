@@ -1,9 +1,10 @@
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 import {
   getStudentDashboardStats,
   getStudentDifficultyProgress,
   getStudentTopicProgress,
 } from "@/services/analytics.service";
-import { requireRole } from "@/lib/auth";
 import {
   BarChartCard,
   PieChartCard,
@@ -11,7 +12,17 @@ import {
 } from "@/components/analytics/charts";
 
 export default async function StudentDashboardPage() {
-  const user = await requireRole(["STUDENT"]);
+  const user = await getCurrentUser();
+
+  // First-time login — redirect to setup
+  if (!user) {
+    redirect("/student/setup");
+  }
+
+  if (user.role !== "STUDENT") {
+    redirect("/login");
+  }
+
 
   const [stats, topicProgress, difficultyProgress] = await Promise.all([
     getStudentDashboardStats(user.id),

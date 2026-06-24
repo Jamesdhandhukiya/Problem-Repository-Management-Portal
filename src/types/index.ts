@@ -35,8 +35,10 @@ export type {
 export type QuestionWithRelations = Question & {
   topic: Topic;
   subtopic: Subtopic | null;
-  createdBy: Pick<User, "id" | "name" | "email" | "domain">;
-  reviews?: Review[];
+  createdBy: Pick<User, "id" | "name" | "email" | "domain" | "department">;
+  reviews?: (Review & {
+    moderator: Pick<User, "id" | "name" | "email">;
+  })[];
   _count?: { bookmarks: number; solvedBy: number };
 };
 

@@ -8,22 +8,34 @@ import { toggleBookmarkAction, toggleSolvedAction } from "@/app/actions";
 import { QuestionDetail } from "@/components/questions/question-detail";
 import { Button } from "@/components/ui/button";
 
-export function StudentQuestionView({ question }: { question: QuestionWithRelations }) {
+export function StudentQuestionView({ 
+  question,
+  isBookmarked,
+  isSolved
+}: { 
+  question: QuestionWithRelations;
+  isBookmarked: boolean;
+  isSolved: boolean;
+}) {
   const router = useRouter();
 
   async function handleBookmark() {
     const result = await toggleBookmarkAction(question.id);
-    if ("error" in result && result.error) toast.error(result.error);
-    else if ("bookmarked" in result)
-      toast.success(result.bookmarked ? "Bookmarked" : "Bookmark removed");
+    if ("error" in result && result.error) {
+      toast.error(result.error);
+    } else if ("bookmarked" in result) {
+      toast.success(result.bookmarked ? "Added to Bookmarks" : "Removed from Bookmarks");
+    }
     router.refresh();
   }
 
   async function handleSolved() {
     const result = await toggleSolvedAction(question.id);
-    if ("error" in result && result.error) toast.error(result.error);
-    else if ("solved" in result)
-      toast.success(result.solved ? "Marked as solved" : "Marked as unsolved");
+    if ("error" in result && result.error) {
+      toast.error(result.error);
+    } else if ("solved" in result) {
+      toast.success(result.solved ? "Question marked as Solved" : "Question marked as Unsolved");
+    }
     router.refresh();
   }
 
@@ -32,13 +44,21 @@ export function StudentQuestionView({ question }: { question: QuestionWithRelati
       question={question}
       actions={
         <>
-          <Button variant="outline" onClick={handleBookmark}>
-            <Bookmark className="mr-2 h-4 w-4" />
-            Bookmark
+          <Button 
+            variant={isBookmarked ? "default" : "outline"} 
+            onClick={handleBookmark}
+            className={isBookmarked ? "bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-sm transition-all" : "font-medium"}
+          >
+            <Bookmark className={`mr-2 h-4 w-4 ${isBookmarked ? "fill-current" : ""}`} />
+            {isBookmarked ? "Bookmarked" : "Bookmark"}
           </Button>
-          <Button onClick={handleSolved}>
+          <Button 
+            variant={isSolved ? "default" : "outline"} 
+            onClick={handleSolved}
+            className={isSolved ? "bg-green-600 hover:bg-green-700 text-white font-medium shadow-sm transition-all" : "font-medium"}
+          >
             <CheckCircle className="mr-2 h-4 w-4" />
-            Mark Solved
+            {isSolved ? "Solved" : "Mark Solved"}
           </Button>
         </>
       }

@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_DASHBOARD_PATHS } from "@/types";
 
-export async function getCurrentUser() {
+import { cache } from "react";
+
+export const getCurrentUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user: authUser },
@@ -19,7 +21,7 @@ export async function getCurrentUser() {
   if (!dbUser || dbUser.status === "DISABLED") return null;
 
   return dbUser;
-}
+});
 
 export async function requireAuth() {
   const user = await getCurrentUser();

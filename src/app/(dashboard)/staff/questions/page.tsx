@@ -61,15 +61,14 @@ export default async function StaffQuestionsPage() {
                   <TableCell>
                     <Badge variant="outline" className="border-primary/20 text-primary">
                       {Boolean(
-                        q.inputFormat || 
-                        q.outputFormat || 
-                        q.sampleInput || 
-                        q.sampleOutput || 
-                        q.hiddenTestCases ||
-                        q.expectedTimeComplexity ||
-                        q.expectedSpaceComplexity ||
-                        q.constraints ||
-                        !['aptitude', 'theory', 'cs core', 'fundamentals'].includes(q.topic.name.toLowerCase())
+                        q.inputFormat?.trim() || 
+                        q.outputFormat?.trim() || 
+                        q.sampleInput?.trim() || 
+                        q.sampleOutput?.trim() || 
+                        q.hiddenTestCases?.trim() ||
+                        q.constraints?.trim() ||
+                        q.expectedTimeComplexity?.trim() ||
+                        q.expectedSpaceComplexity?.trim()
                       ) ? "Coding" : "Theory"}
                     </Badge>
                   </TableCell>

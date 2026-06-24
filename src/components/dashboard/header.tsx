@@ -13,6 +13,7 @@ import {
   Sun,
   User as UserIcon,
   Users,
+  GraduationCap,
 } from "lucide-react";
 import type { User } from "@prisma/client";
 import { signOutAction } from "@/app/actions";
@@ -41,10 +42,11 @@ const NAV_BY_ROLE: Record<User["role"], NavItem[]> = {
   ADMIN: [
     { title: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { title: "Staff", href: "/admin/staff", icon: Users },
-    { title: "Students", href: "/admin/students", icon: Users },
+    { title: "Students", href: "/admin/students", icon: GraduationCap },
     { title: "Reports", href: "/admin/reports", icon: FileText },
     { title: "Audit Logs", href: "/admin/audit-logs", icon: ClipboardCheck },
   ],
+
   STAFF: [
     { title: "Dashboard", href: "/staff", icon: LayoutDashboard },
     { title: "My Questions", href: "/staff/questions", icon: BookOpen },

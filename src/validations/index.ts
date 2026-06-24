@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(4, "Password must be at least 4 characters"),
 });
 
 export const forgotPasswordSchema = z.object({
@@ -20,9 +20,10 @@ export const resetPasswordSchema = z
   });
 
 export const createUserSchema = z.object({
+  id: z.string().optional(),
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(4, "Password must be at least 4 characters"),
   role: z.enum(["ADMIN", "STAFF", "MODERATOR", "STUDENT"]),
   domain: z.string().optional(),
   department: z.string().optional(),
@@ -33,9 +34,9 @@ export const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
   role: z.enum(["ADMIN", "STAFF", "MODERATOR", "STUDENT"]).optional(),
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
-  domain: z.string().optional(),
-  department: z.string().optional(),
-  semester: z.coerce.number().optional(),
+  domain: z.string().nullable().optional(),
+  department: z.string().nullable().optional(),
+  semester: z.coerce.number().nullable().optional(),
 });
 const commaSeparatedToArray = (val: any) => {
   if (typeof val === "string") {

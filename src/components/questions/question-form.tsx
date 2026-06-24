@@ -84,6 +84,17 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
     router.refresh();
   }
 
+  const isTheory = type === "theory" || (!type && !Boolean(
+    initialData?.inputFormat?.trim() ||
+    initialData?.outputFormat?.trim() ||
+    initialData?.sampleInput?.trim() ||
+    initialData?.sampleOutput?.trim() ||
+    initialData?.hiddenTestCases?.trim() ||
+    initialData?.constraints?.trim() ||
+    initialData?.expectedTimeComplexity?.trim() ||
+    initialData?.expectedSpaceComplexity?.trim()
+  ));
+
   return (
     <form className="space-y-6">
       <Card>
@@ -146,7 +157,7 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
         </CardContent>
       </Card>
 
-      {type !== "theory" && (
+      {!isTheory && (
         <Card>
         <CardHeader>
           <CardTitle>Input / Output</CardTitle>
@@ -198,7 +209,7 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
             <Label>Reference Links (Optional, comma-separated URLs)</Label>
             <Input placeholder="https://..." {...register("referenceLinks" as keyof QuestionInput)} />
           </div>
-          {type !== "theory" && (
+          {!isTheory && (
             <>
               <div className="space-y-2">
                 <Label>Expected Time Complexity</Label>

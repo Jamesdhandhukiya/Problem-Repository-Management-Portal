@@ -37,7 +37,7 @@ export type QuestionInput = {
 const questionInclude = {
   topic: true,
   subtopic: true,
-  createdBy: { select: { id: true, name: true, email: true, domain: true } },
+  createdBy: { select: { id: true, name: true, email: true, domain: true, department: true } },
   reviews: {
     include: { moderator: { select: { id: true, name: true, email: true } } },
     orderBy: { reviewedAt: "desc" as const },
@@ -76,7 +76,7 @@ export async function createQuestion(
   });
 
   if (status === "SUBMITTED") {
-    await notifyModeratorsNewSubmission(question.title);
+    await notifyModeratorsNewSubmission(question.title, question.createdBy.department);
     const pendingCount = await prisma.question.count({
       where: { status: { in: ["SUBMITTED", "CHANGES_REQUIRED"] } },
     });
@@ -130,7 +130,7 @@ export async function updateQuestion(
   });
 
   if (status === "SUBMITTED" && existing.status !== "SUBMITTED") {
-    await notifyModeratorsNewSubmission(question.title);
+    await notifyModeratorsNewSubmission(question.title, question.createdBy.department);
   }
 
   return question;
@@ -265,9 +265,16 @@ export async function getStaffQuestions(userId: string) {
   });
 }
 
-export async function getPendingReviews() {
+export async function getPendingReviews(moderatorDept?: string | null) {
   return prisma.question.findMany({
-    where: { status: { in: ["SUBMITTED", "CHANGES_REQUIRED"] } },
+    where: { 
+      status: { in: ["SUBMITTED", "CHANGES_REQUIRED"] },
+      ...(moderatorDept ? {
+        createdBy: {
+          department: moderatorDept
+        }
+      } : {})
+    },
     include: questionInclude,
     orderBy: { createdAt: "asc" },
   });

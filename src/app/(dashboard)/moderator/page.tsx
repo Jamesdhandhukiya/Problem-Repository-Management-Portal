@@ -16,7 +16,7 @@ export default async function ModeratorDashboardPage() {
   const [stats, performance, backlog] = await Promise.all([
     getModeratorDashboardStats(user.id),
     getModeratorReviewPerformance(user.id),
-    getModeratorPendingBacklog(),
+    getModeratorPendingBacklog(user.id),
   ]);
 
   return (

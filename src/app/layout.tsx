@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
+import { SessionGate } from "@/components/auth/session-gate";
+import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,17 +23,21 @@ export const metadata: Metadata = {
     "University platform for managing programming and technical problems",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getCurrentUser();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} forcedTheme="light">
           <TooltipProvider>
-            {children}
+            <SessionGate isLoggedIn={Boolean(user)}>
+              {children}
+            </SessionGate>
             <Toaster richColors position="top-right" />
           </TooltipProvider>
         </ThemeProvider>

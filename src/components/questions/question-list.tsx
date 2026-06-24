@@ -99,17 +99,14 @@ export function QuestionList({
 
       // Type logic
       const isCoding = Boolean(
-        q.inputFormat ||
-        q.outputFormat ||
-        q.sampleInput ||
-        q.sampleOutput ||
-        q.hiddenTestCases ||
-        q.expectedTimeComplexity ||
-        q.expectedSpaceComplexity ||
-        q.constraints ||
-        !["aptitude", "theory", "cs core", "fundamentals"].includes(
-          q.topic.name.toLowerCase()
-        )
+        q.inputFormat?.trim() ||
+        q.outputFormat?.trim() ||
+        q.sampleInput?.trim() ||
+        q.sampleOutput?.trim() ||
+        q.hiddenTestCases?.trim() ||
+        q.constraints?.trim() ||
+        q.expectedTimeComplexity?.trim() ||
+        q.expectedSpaceComplexity?.trim()
       );
       const questionType = isCoding ? "Coding" : "Theory";
       const matchesType = typeFilter === "ALL" || questionType === typeFilter;
@@ -217,17 +214,14 @@ export function QuestionList({
             ) : (
               filteredQuestions.map((q) => {
                 const isCoding = Boolean(
-                  q.inputFormat ||
-                  q.outputFormat ||
-                  q.sampleInput ||
-                  q.sampleOutput ||
-                  q.hiddenTestCases ||
-                  q.expectedTimeComplexity ||
-                  q.expectedSpaceComplexity ||
-                  q.constraints ||
-                  !["aptitude", "theory", "cs core", "fundamentals"].includes(
-                    q.topic.name.toLowerCase()
-                  )
+                  q.inputFormat?.trim() ||
+                  q.outputFormat?.trim() ||
+                  q.sampleInput?.trim() ||
+                  q.sampleOutput?.trim() ||
+                  q.hiddenTestCases?.trim() ||
+                  q.constraints?.trim() ||
+                  q.expectedTimeComplexity?.trim() ||
+                  q.expectedSpaceComplexity?.trim()
                 );
                 const questionType = isCoding ? "Coding" : "Theory";
                 const domain = q.createdBy.domain || "Unassigned";

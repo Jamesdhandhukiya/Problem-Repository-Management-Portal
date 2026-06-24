@@ -42,9 +42,13 @@ export async function markAllNotificationsRead(userId: string) {
   });
 }
 
-export async function notifyModeratorsNewSubmission(questionTitle: string) {
+export async function notifyModeratorsNewSubmission(questionTitle: string, creatorDept?: string | null) {
   const moderators = await prisma.user.findMany({
-    where: { role: "MODERATOR", status: "ACTIVE" },
+    where: { 
+      role: "MODERATOR", 
+      status: "ACTIVE",
+      ...(creatorDept ? { department: creatorDept } : {})
+    },
     select: { id: true },
   });
 
