@@ -53,7 +53,7 @@ export default async function StaffQuestionDetailPage({
           statement: question.statement,
           difficulty: question.difficulty,
           topicId: question.topic?.name || question.topicId,
-          subtopicId: question.subtopicId,
+          subtopicId: question.subtopic?.name || question.subtopicId,
           constraints: question.constraints ?? undefined,
           inputFormat: question.inputFormat ?? undefined,
           outputFormat: question.outputFormat ?? undefined,

@@ -111,7 +111,6 @@ export function StaffManagementTable({ users }: { users: UserWithCount[] }) {
   // Controlled states for editing profile
   const [editDomain, setEditDomain] = useState<string>("");
   const [editDepartment, setEditDepartment] = useState<string>("");
-  const [editIsModerator, setEditIsModerator] = useState<boolean>(false);
 
   const toggleDept = (dept: string) => {
     setExpandedDepts((prev) => ({ ...prev, [dept]: !prev[dept] }));
@@ -235,7 +234,7 @@ export function StaffManagementTable({ users }: { users: UserWithCount[] }) {
     defaultValues: { role: "STAFF", domain: "", department: "" },
   });
 
-  const staffUsers = users.filter((u) => u.role === "STAFF" || u.role === "MODERATOR");
+  const staffUsers = users.filter((u) => u.role === "STAFF");
 
   // Filter staff by search query (name, domain, department) and selected department filter
   const filteredStaffUsers = useMemo(() => {
@@ -265,12 +264,6 @@ export function StaffManagementTable({ users }: { users: UserWithCount[] }) {
     return groups;
   }, [filteredStaffUsers]);
 
-  const isAnotherModeratorForDept = (dept: string | null, userId: string) => {
-    if (!dept) return false;
-    return staffUsers.some(
-      (u) => u.department === dept && u.role === "MODERATOR" && u.id !== userId
-    );
-  };
 
   async function onCreate(data: CreateUserInput) {
     setLoading(true);
@@ -297,23 +290,8 @@ export function StaffManagementTable({ users }: { users: UserWithCount[] }) {
     const department = formData.get("department") as string;
     const name = formData.get("name") as string;
     
-    // Exactly one moderator logic per department:
-    const showModOption =
-      !!department &&
-      department !== "Unassigned" &&
-      !isAnotherModeratorForDept(department, selectedUser.id);
-    
-    const isModerator = showModOption && editIsModerator;
-    
-    let newRole = selectedUser.role;
-    if (isModerator) {
-      newRole = "MODERATOR";
-    } else {
-      newRole = "STAFF";
-    }
-
     const result = await updateUserAction(selectedUser.id, { 
-      role: newRole, 
+      role: "STAFF", 
       domain: domain || null,
       department: department || null,
       name 
@@ -541,7 +519,6 @@ export function StaffManagementTable({ users }: { users: UserWithCount[] }) {
                                 setSelectedUser(user);
                                 setEditDomain(user.domain || "");
                                 setEditDepartment(user.department || "");
-                                setEditIsModerator(user.role === "MODERATOR");
                                 setEditOpen(true);
                               }}
                             >
@@ -613,9 +590,6 @@ export function StaffManagementTable({ users }: { users: UserWithCount[] }) {
                   onValueChange={(v) => {
                     const val = v || "";
                     setEditDepartment(val);
-                    if (isAnotherModeratorForDept(val, selectedUser.id)) {
-                      setEditIsModerator(false);
-                    }
                   }}
                 >
                   <SelectTrigger>
@@ -628,21 +602,6 @@ export function StaffManagementTable({ users }: { users: UserWithCount[] }) {
                   </SelectContent>
                 </Select>
               </div>
-              {!!editDepartment && editDepartment !== "Unassigned" && !isAnotherModeratorForDept(editDepartment, selectedUser.id) && (
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Moderator Privileges</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Set this user as the moderator for their department.
-                    </p>
-                  </div>
-                  <Switch
-                    name="isModerator"
-                    checked={editIsModerator}
-                    onCheckedChange={setEditIsModerator}
-                  />
-                </div>
-              )}
               <DialogFooter>
                 <Button type="submit" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

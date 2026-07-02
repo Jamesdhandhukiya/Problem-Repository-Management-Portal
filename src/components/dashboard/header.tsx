@@ -41,7 +41,9 @@ type NavItem = {
 const NAV_BY_ROLE: Record<User["role"], NavItem[]> = {
   ADMIN: [
     { title: "Dashboard", href: "/admin", icon: LayoutDashboard },
+    { title: "Questions", href: "/admin/questions", icon: BookOpen },
     { title: "Staff", href: "/admin/staff", icon: Users },
+    { title: "Moderators", href: "/admin/moderators", icon: Users },
     { title: "Students", href: "/admin/students", icon: GraduationCap },
     { title: "Reports", href: "/admin/reports", icon: FileText },
     { title: "Audit Logs", href: "/admin/audit-logs", icon: ClipboardCheck },

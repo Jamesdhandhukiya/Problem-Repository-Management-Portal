@@ -10,7 +10,7 @@ export default async function AdminQuestionsPage() {
         <h1 className="text-3xl font-bold tracking-tight">All Questions</h1>
         <p className="text-muted-foreground">View all questions in the system.</p>
       </div>
-      <QuestionList questions={questions} showActions={false} />
+      <QuestionList questions={questions} isAdmin={true} basePath="/admin/questions" />
     </div>
   );
 }

@@ -120,7 +120,7 @@ export function ReviewPanel({
                     q.expectedTimeComplexity?.trim() ||
                     q.expectedSpaceComplexity?.trim()
                   );
-                  const questionType = isCoding ? "Coding" : "Theory";
+                  const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
 
                   return (
                     <div
@@ -206,7 +206,7 @@ export function ReviewPanel({
                     q.expectedTimeComplexity?.trim() ||
                     q.expectedSpaceComplexity?.trim()
                   );
-                  const questionType = isCoding ? "Coding" : "Theory";
+                  const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
                   return (
                     <div
                       key={q.id}
@@ -228,6 +228,9 @@ export function ReviewPanel({
                           </p>
                         </div>
                         <div className="flex gap-2">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/moderator/reviews/${q.id}`}>View Question</Link>
+                          </Button>
                           {sortedReviews.length > 0 && (
                             <Button variant="outline" size="sm" onClick={() => toggleHistory(q.id)}>
                               {expandedHistory[q.id] ? "Hide Submissions" : "View Submissions"}

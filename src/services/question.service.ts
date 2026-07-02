@@ -57,11 +57,22 @@ export async function createQuestion(
     create: { name: topicName, slug: topicSlug },
   });
 
+  let finalSubtopicId = null;
+  if (data.subtopicId) {
+    const subtopicName = data.subtopicId;
+    const subtopic = await prisma.subtopic.upsert({
+      where: { topicId_name: { topicId: topic.id, name: subtopicName } },
+      update: {},
+      create: { name: subtopicName, topicId: topic.id },
+    });
+    finalSubtopicId = subtopic.id;
+  }
+
   const question = await prisma.question.create({
     data: {
       ...data,
       topicId: topic.id,
-      subtopicId: null,
+      subtopicId: finalSubtopicId,
       status,
       createdById: userId,
     },
@@ -110,12 +121,28 @@ export async function updateQuestion(
     finalTopicId = topic.id;
   }
 
+  let finalSubtopicId = undefined;
+  if (data.subtopicId !== undefined) {
+    if (data.subtopicId === null) {
+      finalSubtopicId = null;
+    } else {
+      const topicToUse = finalTopicId || existing.topicId;
+      const subtopicName = data.subtopicId;
+      const subtopic = await prisma.subtopic.upsert({
+        where: { topicId_name: { topicId: topicToUse, name: subtopicName } },
+        update: {},
+        create: { name: subtopicName, topicId: topicToUse },
+      });
+      finalSubtopicId = subtopic.id;
+    }
+  }
+
   const question = await prisma.question.update({
     where: { id: questionId },
     data: {
       ...data,
       ...(finalTopicId ? { topicId: finalTopicId } : {}),
-      subtopicId: null,
+      ...(finalSubtopicId !== undefined ? { subtopicId: finalSubtopicId } : {}),
       ...(status ? { status } : {}),
     },
     include: questionInclude,
@@ -265,26 +292,21 @@ export async function getStaffQuestions(userId: string) {
   });
 }
 
-export async function getPendingReviews(moderatorDept?: string | null) {
+export async function getPendingReviews() {
   return prisma.question.findMany({
     where: { 
       status: { in: ["SUBMITTED", "CHANGES_REQUIRED"] },
-      ...(moderatorDept ? {
-        createdBy: {
-          department: moderatorDept
-        }
-      } : {})
     },
     include: questionInclude,
     orderBy: { createdAt: "asc" },
   });
 }
 
-export async function getModeratorHistory(moderatorId: string) {
+export async function getModeratorHistory() {
   return prisma.question.findMany({
     where: {
-      reviews: {
-        some: { moderatorId }
+      status: {
+        in: ["APPROVED", "REJECTED", "PUBLISHED"]
       }
     },
     include: questionInclude,

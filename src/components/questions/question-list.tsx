@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Bookmark, CheckCircle, Search, BookOpen } from "lucide-react";
+import { Bookmark, CheckCircle, Search, BookOpen, Trash2 } from "lucide-react";
 import type { QuestionWithRelations } from "@/types";
-import { toggleBookmarkAction, toggleSolvedAction } from "@/app/actions";
+import { CODING_DOMAINS } from "@/lib/domains";
+import { toggleBookmarkAction, toggleSolvedAction, deleteQuestionAction } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -33,11 +34,15 @@ export function QuestionList({
   showActions = true,
   userBookmarks = [],
   userSolved = [],
+  isAdmin = false,
+  basePath = "/student/questions",
 }: {
   questions: QuestionWithRelations[];
   showActions?: boolean;
   userBookmarks?: string[];
   userSolved?: string[];
+  isAdmin?: boolean;
+  basePath?: string;
 }) {
   const router = useRouter();
 
@@ -45,11 +50,21 @@ export function QuestionList({
   const [difficultyFilter, setDifficultyFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [domainFilter, setDomainFilter] = useState("ALL");
+  const [subDomainFilter, setSubDomainFilter] = useState("ALL");
 
   const uniqueDomains = useMemo(() => {
-    const domains = new Set(questions.map((q) => q.createdBy.domain || "Unassigned"));
+    const domains = new Set(questions.map((q) => q.topic.name));
     return Array.from(domains).sort();
   }, [questions]);
+
+  const uniqueSubDomains = useMemo(() => {
+    let qs = questions;
+    if (domainFilter !== "ALL") {
+      qs = questions.filter(q => q.topic.name === domainFilter);
+    }
+    const subDomains = new Set(qs.map((q) => q.subtopic?.name).filter(Boolean));
+    return Array.from(subDomains).sort() as string[];
+  }, [questions, domainFilter]);
 
   const questionsWithSrNo = useMemo(() => {
     return questions.map((q, idx) => ({ ...q, srNo: idx + 1 }));
@@ -71,21 +86,29 @@ export function QuestionList({
     router.refresh();
   }
 
+  async function handleDelete(id: string) {
+    if (!confirm("Are you sure you want to delete this question? This action cannot be undone and will remove it from the student page as well.")) return;
+    
+    const result = await deleteQuestionAction(id);
+    if ("error" in result && result.error) toast.error(result.error);
+    else toast.success("Question deleted successfully");
+  }
+
   const filteredQuestions = useMemo(() => {
     return questionsWithSrNo.filter((q) => {
       // Search logic
       const query = searchQuery.toLowerCase();
-      const domain = (q.createdBy.domain || "Unassigned").toLowerCase();
+      const domain = q.topic.name.toLowerCase();
+      const subDomain = (q.subtopic?.name || "").toLowerCase();
       const author = q.createdBy.name.toLowerCase();
-      const topic = q.topic.name.toLowerCase();
       const title = q.title.toLowerCase();
       const srNoStr = String(q.srNo);
 
       const matchesSearch =
         !query ||
         title.includes(query) ||
-        topic.includes(query) ||
         domain.includes(query) ||
+        subDomain.includes(query) ||
         author.includes(query) ||
         srNoStr === query;
 
@@ -95,25 +118,20 @@ export function QuestionList({
 
       // Domain logic
       const matchesDomain =
-        domainFilter === "ALL" || (q.createdBy.domain || "Unassigned") === domainFilter;
+        domainFilter === "ALL" || q.topic.name === domainFilter;
+        
+      // Sub-domain logic
+      const matchesSubDomain =
+        subDomainFilter === "ALL" || (q.subtopic?.name || "") === subDomainFilter;
 
       // Type logic
-      const isCoding = Boolean(
-        q.inputFormat?.trim() ||
-        q.outputFormat?.trim() ||
-        q.sampleInput?.trim() ||
-        q.sampleOutput?.trim() ||
-        q.hiddenTestCases?.trim() ||
-        q.constraints?.trim() ||
-        q.expectedTimeComplexity?.trim() ||
-        q.expectedSpaceComplexity?.trim()
-      );
-      const questionType = isCoding ? "Coding" : "Theory";
+      const isCoding = q.topic.name in CODING_DOMAINS;
+      const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
       const matchesType = typeFilter === "ALL" || questionType === typeFilter;
 
-      return matchesSearch && matchesDifficulty && matchesDomain && matchesType;
+      return matchesSearch && matchesDifficulty && matchesDomain && matchesSubDomain && matchesType;
     });
-  }, [questionsWithSrNo, searchQuery, difficultyFilter, typeFilter, domainFilter]);
+  }, [questionsWithSrNo, searchQuery, difficultyFilter, typeFilter, domainFilter, subDomainFilter]);
 
   if (questions.length === 0) {
     return (
@@ -141,7 +159,10 @@ export function QuestionList({
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">Domain:</span>
-            <Select value={domainFilter} onValueChange={(value) => setDomainFilter(value as string)}>
+            <Select value={domainFilter} onValueChange={(value) => {
+              setDomainFilter(value as string);
+              setSubDomainFilter("ALL");
+            }}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="All" />
               </SelectTrigger>
@@ -157,6 +178,23 @@ export function QuestionList({
           </div>
 
           <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Sub-Domain:</span>
+            <Select value={subDomainFilter} onValueChange={(value) => setSubDomainFilter(value as string)} disabled={uniqueSubDomains.length === 0}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All</SelectItem>
+                {uniqueSubDomains.map((sd) => (
+                  <SelectItem key={sd} value={sd}>
+                    {sd}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">Type:</span>
             <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as string)}>
               <SelectTrigger className="w-[120px]">
@@ -164,8 +202,8 @@ export function QuestionList({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All</SelectItem>
-                <SelectItem value="Coding">Coding</SelectItem>
-                <SelectItem value="Theory">Theory</SelectItem>
+                <SelectItem value="Algorithmic Problem Solving Challenges">Algorithmic Problem Solving Challenges</SelectItem>
+                <SelectItem value="Project Definition / Idea / Prototype">Project Definition / Idea / Prototype</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -194,9 +232,9 @@ export function QuestionList({
               <TableHead className="w-[80px]">Sr. No.</TableHead>
               <TableHead>Title</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Topic</TableHead>
-              <TableHead>Difficulty</TableHead>
               <TableHead>Domain</TableHead>
+              <TableHead>Sub-Domain</TableHead>
+              <TableHead>Difficulty</TableHead>
               <TableHead>Author</TableHead>
               {showActions && <TableHead>Actions</TableHead>}
             </TableRow>
@@ -213,18 +251,8 @@ export function QuestionList({
               </TableRow>
             ) : (
               filteredQuestions.map((q) => {
-                const isCoding = Boolean(
-                  q.inputFormat?.trim() ||
-                  q.outputFormat?.trim() ||
-                  q.sampleInput?.trim() ||
-                  q.sampleOutput?.trim() ||
-                  q.hiddenTestCases?.trim() ||
-                  q.constraints?.trim() ||
-                  q.expectedTimeComplexity?.trim() ||
-                  q.expectedSpaceComplexity?.trim()
-                );
-                const questionType = isCoding ? "Coding" : "Theory";
-                const domain = q.createdBy.domain || "Unassigned";
+                const isCoding = q.topic.name in CODING_DOMAINS;
+                const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
 
                 return (
                   <TableRow key={q.id}>
@@ -233,7 +261,7 @@ export function QuestionList({
                     </TableCell>
                     <TableCell>
                       <Link
-                        href={`/student/questions/${q.id}`}
+                        href={`${basePath}/${q.id}`}
                         className="font-medium hover:underline"
                       >
                         {q.title}
@@ -252,38 +280,52 @@ export function QuestionList({
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{q.topic.name}</Badge>
+                      <Badge variant="secondary" className="whitespace-nowrap">{q.topic.name}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">{q.subtopic?.name || "-"}</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
                         {DIFFICULTY_LABELS[q.difficulty]}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {domain}
-                    </TableCell>
                     <TableCell>{q.createdBy.name}</TableCell>
                     {showActions && (
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Bookmark"
-                            onClick={() => handleBookmark(q.id)}
-                            className={`transition-all hover:scale-110 hover:text-primary hover:bg-primary/10 ${userBookmarks.includes(q.id) ? "text-primary" : ""}`}
-                          >
-                            <Bookmark className={`h-4 w-4 ${userBookmarks.includes(q.id) ? "fill-current" : ""}`} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Mark as solved"
-                            onClick={() => handleSolved(q.id)}
-                            className={`transition-all hover:scale-110 hover:text-primary hover:bg-primary/10 ${userSolved.includes(q.id) ? "text-primary" : ""}`}
-                          >
-                            <CheckCircle className={`h-4 w-4 ${userSolved.includes(q.id) ? "fill-current text-primary" : ""}`} />
-                          </Button>
+                          {isAdmin ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Delete Question"
+                              onClick={() => handleDelete(q.id)}
+                              className="transition-all hover:scale-110 hover:text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Bookmark"
+                                onClick={() => handleBookmark(q.id)}
+                                className={`transition-all hover:scale-110 hover:text-primary hover:bg-primary/10 ${userBookmarks.includes(q.id) ? "text-primary" : ""}`}
+                              >
+                                <Bookmark className={`h-4 w-4 ${userBookmarks.includes(q.id) ? "fill-current" : ""}`} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Mark as solved"
+                                onClick={() => handleSolved(q.id)}
+                                className={`transition-all hover:scale-110 hover:text-primary hover:bg-primary/10 ${userSolved.includes(q.id) ? "text-primary" : ""}`}
+                              >
+                                <CheckCircle className={`h-4 w-4 ${userSolved.includes(q.id) ? "fill-current text-primary" : ""}`} />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     )}

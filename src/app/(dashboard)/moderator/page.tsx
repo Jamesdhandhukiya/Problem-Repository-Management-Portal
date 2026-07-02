@@ -2,6 +2,7 @@ import {
   getModeratorDashboardStats,
   getModeratorPendingBacklog,
   getModeratorReviewPerformance,
+  getModeratorDepartmentStats,
 } from "@/services/analytics.service";
 import { requireRole } from "@/lib/auth";
 import {
@@ -13,10 +14,11 @@ import {
 export default async function ModeratorDashboardPage() {
   const user = await requireRole(["MODERATOR"]);
 
-  const [stats, performance, backlog] = await Promise.all([
-    getModeratorDashboardStats(user.id),
-    getModeratorReviewPerformance(user.id),
-    getModeratorPendingBacklog(user.id),
+  const [stats, performance, backlog, departmentStats] = await Promise.all([
+    getModeratorDashboardStats(),
+    getModeratorReviewPerformance(),
+    getModeratorPendingBacklog(),
+    getModeratorDepartmentStats(),
   ]);
 
   return (
@@ -36,14 +38,19 @@ export default async function ModeratorDashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <BarChartCard
-          title="Review Performance"
-          description="Your review actions breakdown"
+          title="Overall Question Statuses"
+          description="Platform wide question status breakdown"
           data={performance}
         />
         <PieChartCard
           title="Pending Backlog"
           description="Questions awaiting review by status"
           data={backlog}
+        />
+        <BarChartCard
+          title="Department Submissions"
+          description="All time submissions by department"
+          data={departmentStats}
         />
       </div>
     </div>

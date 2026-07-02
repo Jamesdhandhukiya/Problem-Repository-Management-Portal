@@ -18,7 +18,7 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
       where: { status: { in: ["SUBMITTED", "CHANGES_REQUIRED"] } },
     }),
     prisma.user.count({
-      where: { role: { in: ["STAFF", "MODERATOR"] }, status: "ACTIVE" },
+      where: { role: "STAFF", status: "ACTIVE" },
     }),
     prisma.user.count({ where: { role: "STUDENT", status: "ACTIVE" } }),
   ]);
@@ -142,33 +142,20 @@ export async function getStaffApprovalRate(userId: string): Promise<ChartDataPoi
   ];
 }
 
-export async function getModeratorDashboardStats(moderatorId: string) {
-  const moderator = await prisma.user.findUnique({
-    where: { id: moderatorId },
-    select: { department: true }
-  });
-  const dept = moderator?.department;
-
+export async function getModeratorDashboardStats() {
   const [pendingReviews, totalApproved, totalRejected] = await Promise.all([
     prisma.question.count({
       where: {
         status: { in: ["SUBMITTED", "CHANGES_REQUIRED"] },
-        ...(dept ? {
-          createdBy: {
-            department: dept
-          }
-        } : {})
       },
     }),
-    prisma.review.count({
+    prisma.question.count({
       where: {
-        moderatorId,
-        status: "APPROVED",
+        status: { in: ["APPROVED", "PUBLISHED"] },
       },
     }),
-    prisma.review.count({
+    prisma.question.count({
       where: {
-        moderatorId,
         status: "REJECTED",
       },
     }),
@@ -177,12 +164,12 @@ export async function getModeratorDashboardStats(moderatorId: string) {
   return { pendingReviews, totalApproved, totalRejected };
 }
 
-export async function getModeratorReviewPerformance(
-  moderatorId: string
-): Promise<ChartDataPoint[]> {
-  const results = await prisma.review.groupBy({
+export async function getModeratorReviewPerformance(): Promise<ChartDataPoint[]> {
+  const results = await prisma.question.groupBy({
     by: ["status"],
-    where: { moderatorId },
+    where: {
+      status: { not: "DRAFT" },
+    },
     _count: { id: true },
   });
 
@@ -192,22 +179,11 @@ export async function getModeratorReviewPerformance(
   }));
 }
 
-export async function getModeratorPendingBacklog(moderatorId: string): Promise<ChartDataPoint[]> {
-  const moderator = await prisma.user.findUnique({
-    where: { id: moderatorId },
-    select: { department: true }
-  });
-  const dept = moderator?.department;
-
+export async function getModeratorPendingBacklog(): Promise<ChartDataPoint[]> {
   const pending = await prisma.question.groupBy({
     by: ["status"],
     where: {
       status: { in: ["SUBMITTED", "CHANGES_REQUIRED"] },
-      ...(dept ? {
-        createdBy: {
-          department: dept
-        }
-      } : {})
     },
     _count: { id: true },
   });
@@ -216,6 +192,25 @@ export async function getModeratorPendingBacklog(moderatorId: string): Promise<C
     name: p.status.replace("_", " "),
     value: p._count.id,
   }));
+}
+
+export async function getModeratorDepartmentStats(): Promise<ChartDataPoint[]> {
+  const questions = await prisma.question.findMany({
+    where: {
+      status: { not: "DRAFT" },
+    },
+    include: {
+      createdBy: { select: { department: true } }
+    }
+  });
+
+  const deptMap = new Map<string, number>();
+  questions.forEach(q => {
+    const dept = q.createdBy.department || "Unassigned";
+    deptMap.set(dept, (deptMap.get(dept) || 0) + 1);
+  });
+
+  return Array.from(deptMap.entries()).map(([name, value]) => ({ name, value }));
 }
 
 export async function getStudentDashboardStats(studentId: string) {

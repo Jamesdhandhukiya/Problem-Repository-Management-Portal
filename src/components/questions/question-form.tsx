@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { questionSchema, type QuestionInput } from "@/validations";
+import { THEORY_DOMAINS, CODING_DOMAINS, type TheoryDomainKey, type CodingDomainKey } from "@/lib/domains";
 
 type QuestionFormProps = {
   topics: (Topic & { subtopics: { id: string; name: string }[] })[];
@@ -34,6 +35,14 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
+  let topicName = initialData?.topicId;
+  // Fallback to searching by ID if the passed value isn't a known domain name
+  if (topicName && !(topicName in CODING_DOMAINS) && !(topicName in THEORY_DOMAINS)) {
+    topicName = topics.find(t => t.id === initialData?.topicId)?.name || topicName;
+  }
+  
+  const isTheory = type === "theory" || (!type && topicName && !(topicName in CODING_DOMAINS));
+
   const {
     register,
     handleSubmit,
@@ -43,7 +52,9 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
   } = useForm<QuestionInput>({
     resolver: zodResolver(questionSchema) as Resolver<QuestionInput>,
     defaultValues: {
-      difficulty: "EASY",
+      difficulty: (initialData?.difficulty && !(isTheory && initialData.difficulty === "EASY"))
+        ? initialData.difficulty
+        : (isTheory ? "MEDIUM" : "EASY"),
       referenceLinks: [],
       tags: [],
       companyTags: [],
@@ -84,16 +95,7 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
     router.refresh();
   }
 
-  const isTheory = type === "theory" || (!type && !Boolean(
-    initialData?.inputFormat?.trim() ||
-    initialData?.outputFormat?.trim() ||
-    initialData?.sampleInput?.trim() ||
-    initialData?.sampleOutput?.trim() ||
-    initialData?.hiddenTestCases?.trim() ||
-    initialData?.constraints?.trim() ||
-    initialData?.expectedTimeComplexity?.trim() ||
-    initialData?.expectedSpaceComplexity?.trim()
-  ));
+  const currentDomains = isTheory ? THEORY_DOMAINS : CODING_DOMAINS;
 
   return (
     <form className="space-y-6">
@@ -112,7 +114,11 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
           <div className="space-y-2">
             <Label>Difficulty</Label>
             <Select
-              defaultValue={initialData?.difficulty ?? "EASY"}
+              defaultValue={
+                initialData?.difficulty && !(isTheory && initialData.difficulty === "EASY")
+                  ? initialData.difficulty
+                  : (isTheory ? "MEDIUM" : "EASY")
+              }
               onValueChange={(v) =>
                 v && setValue("difficulty", v as QuestionInput["difficulty"])
               }
@@ -121,7 +127,7 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="EASY">Easy</SelectItem>
+                {!isTheory && <SelectItem value="EASY">Easy</SelectItem>}
                 <SelectItem value="MEDIUM">Medium</SelectItem>
                 <SelectItem value="HARD">Hard</SelectItem>
               </SelectContent>
@@ -129,14 +135,42 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
           </div>
           <div className="space-y-2">
             <Label>Domain</Label>
-            <Input value={userDomain || "Unassigned"} disabled className="bg-muted text-muted-foreground" />
-          </div>
-          <div className="space-y-2">
-            <Label>Topic</Label>
-            <Input {...register("topicId")} placeholder="e.g. Arrays, Graph, NLP" />
+            <Select
+              value={watch("topicId")}
+              onValueChange={(v) => {
+                setValue("topicId", v as any, { shouldValidate: true });
+                setValue("subtopicId", undefined as any);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a Domain" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.keys(currentDomains).map((d) => (
+                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {errors.topicId && (
               <p className="text-sm text-destructive">{errors.topicId.message}</p>
             )}
+          </div>
+          <div className="space-y-2">
+            <Label>Sub-Domain</Label>
+            <Select
+              disabled={!watch("topicId")}
+              value={watch("subtopicId") || ""}
+              onValueChange={(v) => setValue("subtopicId", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a Sub-Domain" />
+              </SelectTrigger>
+              <SelectContent>
+                {((currentDomains as any)[watch("topicId")] || []).map((sd: string) => (
+                  <SelectItem key={sd} value={sd}>{sd}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Tags (comma-separated)</Label>
@@ -144,69 +178,83 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <Label>Problem Statement</Label>
+            <Label>{isTheory ? "Problem Definition" : "Problem Statement"}</Label>
             <Textarea
               {...register("statement")}
               rows={6}
-              placeholder="Describe the problem..."
+              placeholder={isTheory ? "Define the problem clearly..." : "Describe the problem..."}
             />
             {errors.statement && (
               <p className="text-sm text-destructive">{errors.statement.message}</p>
             )}
           </div>
+          {isTheory && (
+            <>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Suggested Technology Stack (Optional)</Label>
+                <Textarea {...register("inputFormat")} rows={3} placeholder="e.g., React, Node.js, PostgreSQL" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Expected Outcome</Label>
+                <Textarea {...register("outputFormat")} rows={3} placeholder="What is the expected result or deliverable?" />
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
       {!isTheory && (
         <Card>
-        <CardHeader>
-          <CardTitle>Input / Output</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Constraints</Label>
-            <Textarea {...register("constraints")} rows={3} />
-          </div>
-          <div className="space-y-2">
-            <Label>Input Format</Label>
-            <Textarea {...register("inputFormat")} rows={3} />
-          </div>
-          <div className="space-y-2">
-            <Label>Output Format</Label>
-            <Textarea {...register("outputFormat")} rows={3} />
-          </div>
-          <div className="space-y-2">
-            <Label>Sample Input</Label>
-            <Textarea {...register("sampleInput")} rows={3} />
-          </div>
-          <div className="space-y-2">
-            <Label>Sample Output</Label>
-            <Textarea {...register("sampleOutput")} rows={3} />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Hidden Test Cases</Label>
-            <Textarea {...register("hiddenTestCases")} rows={3} />
-          </div>
-        </CardContent>
-      </Card>
+          <CardHeader>
+            <CardTitle>Input / Output</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Constraints</Label>
+              <Textarea {...register("constraints")} rows={3} />
+            </div>
+            <div className="space-y-2">
+              <Label>Input Format</Label>
+              <Textarea {...register("inputFormat")} rows={3} />
+            </div>
+            <div className="space-y-2">
+              <Label>Output Format</Label>
+              <Textarea {...register("outputFormat")} rows={3} />
+            </div>
+            <div className="space-y-2">
+              <Label>Sample Input</Label>
+              <Textarea {...register("sampleInput")} rows={3} />
+            </div>
+            <div className="space-y-2">
+              <Label>Sample Output</Label>
+              <Textarea {...register("sampleOutput")} rows={3} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Hidden Test Cases</Label>
+              <Textarea {...register("hiddenTestCases")} rows={3} />
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <Card>
         <CardHeader>
-          <CardTitle>Solution & Metadata</CardTitle>
+          <CardTitle>{isTheory ? "Metadata" : "Solution & Metadata"}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <Label>Solution Approach</Label>
-            <Textarea {...register("solutionApproach")} rows={4} />
-          </div>
+          {!isTheory && (
+            <div className="space-y-2 md:col-span-2">
+              <Label>Solution Approach</Label>
+              <Textarea {...register("solutionApproach")} rows={4} />
+            </div>
+          )}
 
           <div className="space-y-2">
-            <Label>Company Tags (Optional, comma-separated)</Label>
-            <Input placeholder="Google, Amazon" {...register("companyTags" as keyof QuestionInput)} />
+            <Label>{isTheory ? "Interdisciplinary Areas (Optional, comma-separated)" : "Company Tags (Optional, comma-separated)"}</Label>
+            <Input placeholder={isTheory ? "e.g., Healthcare, IoT" : "Google, Amazon"} {...register("companyTags" as keyof QuestionInput)} />
           </div>
           <div className="space-y-2">
-            <Label>Reference Links (Optional, comma-separated URLs)</Label>
+            <Label>{isTheory ? "Source Link (Optional, comma-separated URLs)" : "Reference Links (Optional, comma-separated URLs)"}</Label>
             <Input placeholder="https://..." {...register("referenceLinks" as keyof QuestionInput)} />
           </div>
           {!isTheory && (

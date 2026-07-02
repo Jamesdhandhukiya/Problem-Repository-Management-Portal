@@ -14,25 +14,19 @@ import {
   AlertCircle, 
   History,
   Link2,
-  User
+  User,
+  Code2,
+  CheckCircle
 } from "lucide-react";
+import { CODING_DOMAINS } from "@/lib/domains";
 
 export function ModeratorQuestionView({
   question,
 }: {
   question: QuestionWithRelations;
 }) {
-  const isCoding = Boolean(
-    (question.inputFormat && question.inputFormat.trim() && question.inputFormat !== "null" && question.inputFormat !== "undefined") || 
-    (question.outputFormat && question.outputFormat.trim() && question.outputFormat !== "null" && question.outputFormat !== "undefined") || 
-    (question.sampleInput && question.sampleInput.trim() && question.sampleInput !== "null" && question.sampleInput !== "undefined") || 
-    (question.sampleOutput && question.sampleOutput.trim() && question.sampleOutput !== "null" && question.sampleOutput !== "undefined") || 
-    (question.hiddenTestCases && question.hiddenTestCases.trim() && question.hiddenTestCases !== "null" && question.hiddenTestCases !== "undefined") ||
-    (question.constraints && question.constraints.trim() && question.constraints !== "null" && question.constraints !== "undefined") ||
-    (question.expectedTimeComplexity && question.expectedTimeComplexity.trim() && question.expectedTimeComplexity !== "null" && question.expectedTimeComplexity !== "undefined") ||
-    (question.expectedSpaceComplexity && question.expectedSpaceComplexity.trim() && question.expectedSpaceComplexity !== "null" && question.expectedSpaceComplexity !== "undefined")
-  );
-  const questionType = isCoding ? "Coding" : "Theory";
+  const isCoding = question.topic.name in CODING_DOMAINS;
+  const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
 
   // Prepare reviews for display: chronological order to get submission numbers, then reversed for display
   const rejectedReviews = [...(question.reviews || [])]
@@ -56,11 +50,13 @@ export function ModeratorQuestionView({
         
         {/* Badges Row */}
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="bg-muted text-muted-foreground border border-border">
+          <Badge variant="secondary" className="bg-muted text-muted-foreground border border-border px-2.5 py-1">
+            <span className="font-semibold text-foreground/70 mr-1.5 uppercase text-[10px] tracking-wider">Domain:</span> 
             {question.topic.name}
           </Badge>
           {question.subtopic && (
-            <Badge variant="outline" className="border-border text-muted-foreground">
+            <Badge variant="outline" className="border-border text-muted-foreground px-2.5 py-1">
+              <span className="font-semibold text-foreground/70 mr-1.5 uppercase text-[10px] tracking-wider">Sub-Domain:</span> 
               {question.subtopic.name}
             </Badge>
           )}
@@ -104,19 +100,36 @@ export function ModeratorQuestionView({
           )}
         </div>
 
-        {/* Tags & Company Tags Row */}
+        {/* Tags & Company Tags */}
         {(question.tags.length > 0 || question.companyTags.length > 0) && (
-          <div className="flex flex-wrap gap-2 pt-2">
-            {question.tags.filter(Boolean).map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs bg-muted/60 text-muted-foreground hover:bg-muted/80">
-                #{tag}
-              </Badge>
-            ))}
-            {question.companyTags.filter(Boolean).map((tag) => (
-              <Badge key={tag} variant="outline" className="text-xs border-primary/20 text-primary bg-primary/5 hover:bg-primary/10">
-                {tag}
-              </Badge>
-            ))}
+          <div className="flex flex-col gap-4 pt-2">
+            {question.tags.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Keywords / Topics</div>
+                <div className="flex flex-wrap gap-2">
+                  {question.tags.filter(Boolean).map((tag) => (
+                    <Badge key={tag} variant="secondary" className="text-xs bg-muted/60 text-muted-foreground hover:bg-muted/80 px-2.5 py-1">
+                      #{tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {question.companyTags.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {!isCoding ? "Interdisciplinary Areas" : "Company Tags"}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {question.companyTags.filter(Boolean).map((tag) => (
+                    <Badge key={tag} variant="outline" className="text-xs border-primary/20 text-primary bg-primary/5 hover:bg-primary/10 px-2.5 py-1 font-medium">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -127,7 +140,7 @@ export function ModeratorQuestionView({
         <section className="space-y-3">
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            Problem Statement
+            {!isCoding ? "Problem Definition" : "Problem Statement"}
           </h2>
           <div className="text-foreground leading-relaxed text-[15px] whitespace-pre-wrap pl-7">
             {question.statement}
@@ -140,8 +153,17 @@ export function ModeratorQuestionView({
             {question.inputFormat && question.inputFormat.trim() !== "null" && question.inputFormat.trim() !== "undefined" && (
               <section className="space-y-2">
                 <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                  <Terminal className="h-4 w-4 text-primary" />
-                  Input Format
+                  {!isCoding ? (
+                    <>
+                      <Code2 className="h-4 w-4 text-primary" />
+                      Suggested Technology Stack
+                    </>
+                  ) : (
+                    <>
+                      <Terminal className="h-4 w-4 text-primary" />
+                      Input Format
+                    </>
+                  )}
                 </h3>
                 <div className="bg-muted/40 border border-border rounded-xl p-4 text-[14px] text-muted-foreground leading-relaxed whitespace-pre-wrap">
                   {question.inputFormat}
@@ -152,8 +174,17 @@ export function ModeratorQuestionView({
             {question.outputFormat && question.outputFormat.trim() !== "null" && question.outputFormat.trim() !== "undefined" && (
               <section className="space-y-2">
                 <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                  <Terminal className="h-4 w-4 text-primary" />
-                  Output Format
+                  {!isCoding ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      Expected Outcome
+                    </>
+                  ) : (
+                    <>
+                      <Terminal className="h-4 w-4 text-primary" />
+                      Output Format
+                    </>
+                  )}
                 </h3>
                 <div className="bg-muted/40 border border-border rounded-xl p-4 text-[14px] text-muted-foreground leading-relaxed whitespace-pre-wrap">
                   {question.outputFormat}
@@ -164,7 +195,7 @@ export function ModeratorQuestionView({
         )}
 
         {/* Constraints */}
-        {question.constraints && question.constraints.trim() !== "null" && question.constraints.trim() !== "undefined" && (
+        {isCoding && question.constraints && question.constraints.trim() !== "null" && question.constraints.trim() !== "undefined" && (
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
               <Sliders className="h-5 w-5 text-primary" />
@@ -179,7 +210,7 @@ export function ModeratorQuestionView({
         )}
 
         {/* Sample I/O */}
-        {(question.sampleInput || question.sampleOutput) && (
+        {isCoding && (question.sampleInput || question.sampleOutput) && (
           <section className="space-y-4">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-primary" />
@@ -207,7 +238,7 @@ export function ModeratorQuestionView({
         )}
 
         {/* Solution Approach */}
-        {question.solutionApproach && question.solutionApproach.trim() !== "null" && question.solutionApproach.trim() !== "undefined" && (
+        {isCoding && question.solutionApproach && question.solutionApproach.trim() !== "null" && question.solutionApproach.trim() !== "undefined" && (
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-primary" />
@@ -226,7 +257,7 @@ export function ModeratorQuestionView({
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
               <Link2 className="h-5 w-5 text-primary" />
-              Reference Links
+              {!isCoding ? "Source Links" : "Reference Links"}
             </h2>
             <div className="pl-7 space-y-1.5">
               {question.referenceLinks.filter(Boolean).map((link) => (

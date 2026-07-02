@@ -157,6 +157,7 @@ export async function createUserAction(data: unknown) {
   try {
     const newUser = await createUser(parsed.data as any, user.id);
     revalidatePath("/admin/staff");
+    revalidatePath("/admin/moderators");
     return { success: true, user: newUser };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to create user" };
@@ -177,6 +178,7 @@ export async function updateUserAction(userId: string, data: unknown) {
   try {
     const updated = await updateUser(userId, parsed.data, user.id);
     revalidatePath("/admin/staff");
+    revalidatePath("/admin/moderators");
     return { success: true, user: updated };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to update user" };
@@ -192,6 +194,7 @@ export async function deleteUserAction(userId: string) {
   try {
     const deleted = await deleteUser(userId, user.id);
     revalidatePath("/admin/staff");
+    revalidatePath("/admin/moderators");
     return { success: true, user: deleted };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to delete user" };
@@ -220,6 +223,35 @@ export async function toggleSolvedAction(questionId: string) {
   revalidatePath("/student/questions");
   revalidatePath(`/student/questions/${questionId}`);
   return { success: true, ...result };
+}
+
+export async function deleteQuestionAction(questionId: string) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "ADMIN") {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const question = await prisma.question.findUnique({
+      where: { id: questionId }
+    });
+
+    if (!question) {
+      return { error: "Question not found" };
+    }
+
+    await prisma.question.delete({
+      where: { id: questionId }
+    });
+
+    revalidatePath("/admin/questions");
+    revalidatePath("/student/questions");
+    revalidatePath("/staff/questions");
+    return { success: true };
+  } catch (error) {
+    console.error("[DELETE_QUESTION]", error);
+    return { error: "Failed to delete question" };
+  }
 }
 
 export async function updatePasswordAction(formData: FormData) {

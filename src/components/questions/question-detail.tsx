@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { DIFFICULTY_LABELS } from "@/types";
 import { format } from "date-fns";
+import { CODING_DOMAINS } from "@/lib/domains";
 import { QuestionStatusBadge } from "./question-status-badge";
 import { 
   ExternalLink, 
@@ -29,17 +30,8 @@ export function QuestionDetail({
   showReviews?: boolean;
   actions?: React.ReactNode;
 }) {
-  const isCoding = Boolean(
-    question.inputFormat?.trim() || 
-    question.outputFormat?.trim() || 
-    question.sampleInput?.trim() || 
-    question.sampleOutput?.trim() || 
-    question.hiddenTestCases?.trim() ||
-    question.constraints?.trim() ||
-    question.expectedTimeComplexity?.trim() ||
-    question.expectedSpaceComplexity?.trim()
-  );
-  const questionType = isCoding ? "Coding" : "Theory";
+  const isCoding = question.topic.name in CODING_DOMAINS;
+  const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
 
   // Difficulty badge colors
   const difficultyColors = {
@@ -53,14 +45,16 @@ export function QuestionDetail({
       {/* Meta header */}
       <div className="flex flex-wrap items-center gap-2 pb-2">
         <Badge variant="outline" className={`font-semibold border-indigo-500/20 text-indigo-700 bg-indigo-500/5 dark:text-indigo-400`}>
-          {questionType === "Coding" ? <Code2 className="mr-1 h-3.5 w-3.5 inline" /> : <FileText className="mr-1 h-3.5 w-3.5 inline" />}
+          {questionType === "Algorithmic Problem Solving Challenges" ? <Code2 className="mr-1 h-3.5 w-3.5 inline" /> : <FileText className="mr-1 h-3.5 w-3.5 inline" />}
           {questionType}
         </Badge>
-        <Badge variant="outline" className="border-slate-200 text-slate-700 dark:text-slate-300">
+        <Badge variant="outline" className="border-slate-200 text-slate-700 dark:text-slate-300 px-2.5 py-1">
+          <span className="font-semibold text-slate-500 mr-1.5 uppercase text-[10px] tracking-wider">Domain:</span>
           {question.topic.name}
         </Badge>
         {question.subtopic && (
-          <Badge variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+          <Badge variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 px-2.5 py-1">
+            <span className="font-semibold text-slate-500 mr-1.5 uppercase text-[10px] tracking-wider">Sub-Domain:</span>
             {question.subtopic.name}
           </Badge>
         )}
@@ -82,7 +76,7 @@ export function QuestionDetail({
         <CardHeader className="bg-muted/30 border-b border-border/50">
           <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
             <FileText className="h-5 w-5 text-primary" />
-            Problem Statement
+            {!isCoding ? "Problem Definition" : "Problem Statement"}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
@@ -163,8 +157,44 @@ export function QuestionDetail({
         </div>
       )}
 
+      {/* Theory specific fields */}
+      {!isCoding && (
+        <div className="grid gap-6 md:grid-cols-2">
+          {question.inputFormat && (
+            <Card className="border border-border/80 shadow-sm overflow-hidden">
+              <CardHeader className="bg-muted/10 border-b border-border/50">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Code2 className="h-4 w-4 text-primary" />
+                  Suggested Technology Stack
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-5">
+                <div className="whitespace-pre-wrap text-foreground/80 leading-relaxed font-sans">
+                  {question.inputFormat}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {question.outputFormat && (
+            <Card className="border border-border/80 shadow-sm overflow-hidden">
+              <CardHeader className="bg-muted/10 border-b border-border/50">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  Expected Outcome
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-5">
+                <div className="whitespace-pre-wrap text-foreground/80 leading-relaxed font-sans">
+                  {question.outputFormat}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
       {/* Solution Approach */}
-      {question.solutionApproach && (
+      {isCoding && question.solutionApproach && (
         <Card className="border border-border/80 shadow-sm overflow-hidden">
           <CardHeader className="bg-muted/10 border-b border-border/50">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -186,7 +216,7 @@ export function QuestionDetail({
           <CardHeader className="bg-muted/10 border-b border-border/50">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <Link2 className="h-4 w-4 text-indigo-500" />
-              Reference Links & Resources
+              {!isCoding ? "Source Links" : "Reference Links & Resources"}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
@@ -234,7 +264,7 @@ export function QuestionDetail({
             <CardHeader className="py-3.5 border-b border-border/40 bg-muted/10">
               <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Building className="h-4 w-4" />
-                Company Tags
+                {!isCoding ? "Interdisciplinary Areas" : "Company Tags"}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2 pt-4">

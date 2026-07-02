@@ -59,7 +59,7 @@ export default async function StaffQuestionsPage() {
                 <TableRow key={q.id}>
                   <TableCell className="font-medium">{q.title}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="border-primary/20 text-primary">
+                    <Badge variant="outline" className="border-primary/20 text-primary truncate max-w-[200px]">
                       {Boolean(
                         q.inputFormat?.trim() || 
                         q.outputFormat?.trim() || 
@@ -69,7 +69,7 @@ export default async function StaffQuestionsPage() {
                         q.constraints?.trim() ||
                         q.expectedTimeComplexity?.trim() ||
                         q.expectedSpaceComplexity?.trim()
-                      ) ? "Coding" : "Theory"}
+                      ) ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype"}
                     </Badge>
                   </TableCell>
                   <TableCell>{q.topic.name}</TableCell>
