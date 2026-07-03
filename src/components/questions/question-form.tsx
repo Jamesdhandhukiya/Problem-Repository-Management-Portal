@@ -52,9 +52,9 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
   } = useForm<QuestionInput>({
     resolver: zodResolver(questionSchema) as Resolver<QuestionInput>,
     defaultValues: {
-      difficulty: (initialData?.difficulty && !(isTheory && initialData.difficulty === "EASY"))
+      difficulty: (initialData?.difficulty && initialData.difficulty !== "EASY")
         ? initialData.difficulty
-        : (isTheory ? "MEDIUM" : "EASY"),
+        : "MEDIUM",
       referenceLinks: [],
       tags: [],
       companyTags: [],
@@ -115,9 +115,9 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
             <Label>Difficulty</Label>
             <Select
               defaultValue={
-                initialData?.difficulty && !(isTheory && initialData.difficulty === "EASY")
+                initialData?.difficulty && initialData.difficulty !== "EASY"
                   ? initialData.difficulty
-                  : (isTheory ? "MEDIUM" : "EASY")
+                  : "MEDIUM"
               }
               onValueChange={(v) =>
                 v && setValue("difficulty", v as QuestionInput["difficulty"])
@@ -127,7 +127,6 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {!isTheory && <SelectItem value="EASY">Easy</SelectItem>}
                 <SelectItem value="MEDIUM">Medium</SelectItem>
                 <SelectItem value="HARD">Hard</SelectItem>
               </SelectContent>
