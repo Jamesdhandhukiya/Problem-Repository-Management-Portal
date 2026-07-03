@@ -96,79 +96,90 @@ export function LoginForm() {
       await handlePostLoginRedirect();
     }
 
-    const finalPassword = data.password.length < 6 ? data.password.padEnd(6, '0') : data.password;
+    try {
+      const finalPassword = data.password.length < 6 ? data.password.padEnd(6, '0') : data.password;
 
-    // ── Step 1: Try to sign in ──────────────────────────────────────────────
-    const { error: loginErr } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: finalPassword,
-    });
+      // ── Step 1: Try to sign in ──────────────────────────────────────────────
+      const { error: loginErr } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: finalPassword,
+      });
 
-    if (!loginErr) {
-      await handlePostLoginRedirect();
-      return;
-    }
+      if (!loginErr) {
+        await handlePostLoginRedirect();
+        return;
+      }
 
-    // ── Step 2: Login failed ────────────────────────────────────────────────
-    const errMsg = loginErr.message.toLowerCase();
+      // ── Step 2: Login failed ────────────────────────────────────────────────
+      const errMsg = loginErr.message.toLowerCase();
 
-    // Catch "Email not confirmed" during sign in — bypass by auto-confirming
-    if (studentEmail && (errMsg.includes("confirm") || errMsg.includes("verified"))) {
-      if (data.password !== DEFAULT_PASSWORD) {
+      // Catch "Email not confirmed" during sign in — bypass by auto-confirming
+      if (studentEmail && (errMsg.includes("confirm") || errMsg.includes("verified"))) {
+        if (data.password !== DEFAULT_PASSWORD) {
+          toast.error(
+            "Your account is registered but not confirmed yet. Please log in with the default password (depstar@charusat) to auto-verify your account.",
+            { duration: 8000 }
+          );
+          setLoading(false);
+          return;
+        }
+        await attemptAutoConfirmAndLogin(DEFAULT_PASSWORD);
+        return;
+      }
+
+      if (!studentEmail) {
+        // Non-student (staff/admin): show clean error and stop
         toast.error(
-          "Your account is registered but not confirmed yet. Please log in with the default password (depstar@charusat) to auto-verify your account.",
-          { duration: 8000 }
+          errMsg.includes("invalid") || errMsg.includes("credentials")
+            ? "Incorrect email or password. Please try again."
+            : loginErr.message
         );
         setLoading(false);
         return;
       }
-      await attemptAutoConfirmAndLogin(DEFAULT_PASSWORD);
-      return;
-    }
 
-    if (!studentEmail) {
-      // Non-student (staff/admin): show clean error and stop
-      toast.error(
-        errMsg.includes("invalid") || errMsg.includes("credentials")
-          ? "Incorrect email or password. Please try again."
-          : loginErr.message
-      );
-      setLoading(false);
-      return;
-    }
-
-    // ── Step 3: Student login failed ────────────────────────────────────────
-    // Only auto-register if the entered password is exactly the default
-    if (data.password !== DEFAULT_PASSWORD) {
-      toast.error(
-        "First-time login? Use the default password: depstar@charusat\n\nIf you have already set a custom password, enter that instead.",
-        { duration: 7000 }
-      );
-      setLoading(false);
-      return;
-    }
-
-    // ── Step 4: Default password entered — auto-register ───────────────────
-    const { error: signUpErr } = await supabase.auth.signUp({
-      email: data.email,
-      password: DEFAULT_PASSWORD,
-      options: { data: { role: "STUDENT" } },
-    });
-
-    if (signUpErr) {
-      const signErrMsg = signUpErr.message.toLowerCase();
-      // If user already exists but is unconfirmed
-      if (signErrMsg.includes("already") || signErrMsg.includes("exists")) {
-        await attemptAutoConfirmAndLogin(DEFAULT_PASSWORD);
-      } else {
-        toast.error("Registration failed: " + signUpErr.message);
+      // ── Step 3: Student login failed ────────────────────────────────────────
+      // Only auto-register if the entered password is exactly the default
+      if (data.password !== DEFAULT_PASSWORD) {
+        toast.error(
+          "First-time login? Use the default password: depstar@charusat\n\nIf you have already set a custom password, enter that instead.",
+          { duration: 7000 }
+        );
         setLoading(false);
+        return;
       }
-      return;
-    }
 
-    // SignUp succeeded, but needs confirmation — let's auto-confirm and login!
-    await attemptAutoConfirmAndLogin(DEFAULT_PASSWORD);
+      // ── Step 4: Default password entered — auto-register ───────────────────
+      const { error: signUpErr } = await supabase.auth.signUp({
+        email: data.email,
+        password: DEFAULT_PASSWORD,
+        options: { data: { role: "STUDENT" } },
+      });
+
+      if (signUpErr) {
+        const signErrMsg = signUpErr.message.toLowerCase();
+        // If user already exists but is unconfirmed
+        if (signErrMsg.includes("already") || signErrMsg.includes("exists")) {
+          await attemptAutoConfirmAndLogin(DEFAULT_PASSWORD);
+        } else {
+          toast.error("Registration failed: " + signUpErr.message);
+          setLoading(false);
+        }
+        return;
+      }
+
+      // SignUp succeeded, but needs confirmation — let's auto-confirm and login!
+      await attemptAutoConfirmAndLogin(DEFAULT_PASSWORD);
+    } catch (err) {
+      console.error("Unexpected login error:", err);
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred during login. Please try again.",
+        { duration: 8000 }
+      );
+      setLoading(false);
+    }
   }
 
 

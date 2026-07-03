@@ -463,12 +463,10 @@ export async function autoConfirmStudentEmailAction(email: string) {
   }
 
   try {
-    // Update email_confirmed_at and reset the password to the default "depstar@charusat"
-    // in Supabase's auth.users table using the Postgres extensions.crypt function
+    // Update email_confirmed_at in Supabase's auth.users table directly.
     await prisma.$executeRawUnsafe(
       `UPDATE auth.users 
-       SET email_confirmed_at = NOW(),
-           encrypted_password = extensions.crypt('depstar@charusat', extensions.gen_salt('bf'))
+       SET email_confirmed_at = NOW()
        WHERE email = $1`,
       email
     );
