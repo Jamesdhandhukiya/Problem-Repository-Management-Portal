@@ -81,7 +81,10 @@ export function LoginForm() {
         return;
       }
 
-      // 2. Retry signing in now that the email is marked confirmed
+      // 2. Add a small delay to allow GoTrue/Postgres to settle and avoid race conditions
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // 3. Retry signing in now that the email is marked confirmed
       const { error: retryErr } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: password,

@@ -463,10 +463,10 @@ export async function autoConfirmStudentEmailAction(email: string) {
   }
 
   try {
-    // Update email_confirmed_at in Supabase's auth.users table directly.
+    // Update email_confirmed_at and confirmed_at in Supabase's auth.users table directly.
     await prisma.$executeRawUnsafe(
       `UPDATE auth.users 
-       SET email_confirmed_at = NOW()
+       SET email_confirmed_at = NOW(), confirmed_at = NOW()
        WHERE email = $1`,
       email
     );
