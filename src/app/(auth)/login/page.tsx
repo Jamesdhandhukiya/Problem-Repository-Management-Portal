@@ -11,7 +11,7 @@ export default function LoginPage() {
           src="/login.png"
           alt="Login Portal Background"
           fill
-          className="object-contain object-right lg:object-right"
+          className="object-cover object-center"
           priority
           quality={100}
         />
