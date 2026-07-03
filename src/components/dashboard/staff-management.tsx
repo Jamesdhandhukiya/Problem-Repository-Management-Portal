@@ -289,12 +289,14 @@ export function StaffManagementTable({ users }: { users: UserWithCount[] }) {
     const domain = formData.get("domain") as string;
     const department = formData.get("department") as string;
     const name = formData.get("name") as string;
+    const password = formData.get("password") as string;
     
     const result = await updateUserAction(selectedUser.id, { 
       role: "STAFF", 
       domain: domain || null,
       department: department || null,
-      name 
+      name,
+      ...(password ? { password } : {})
     });
     
     setLoading(false);
@@ -601,6 +603,10 @@ export function StaffManagementTable({ users }: { users: UserWithCount[] }) {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>New Password (Optional)</Label>
+                <Input name="password" type="password" placeholder="Leave blank to keep current password" />
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={loading}>

@@ -37,6 +37,7 @@ export const updateUserSchema = z.object({
   domain: z.string().nullable().optional(),
   department: z.string().nullable().optional(),
   semester: z.coerce.number().nullable().optional(),
+  password: z.string().min(4, "Password must be at least 4 characters").optional(),
 });
 const commaSeparatedToArray = (val: any) => {
   if (typeof val === "string") {

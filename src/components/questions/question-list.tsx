@@ -2,11 +2,12 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Bookmark, CheckCircle, Search, BookOpen, Trash2 } from "lucide-react";
+import { Bookmark, CheckCircle, Search, BookOpen, Trash2, Filter } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { QuestionWithRelations } from "@/types";
 import { CODING_DOMAINS } from "@/lib/domains";
 import { toggleBookmarkAction, toggleSolvedAction, deleteQuestionAction } from "@/app/actions";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -51,6 +52,7 @@ export function QuestionList({
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [domainFilter, setDomainFilter] = useState("ALL");
   const [subDomainFilter, setSubDomainFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   const uniqueDomains = useMemo(() => {
     const domains = new Set(questions.map((q) => q.topic.name));
@@ -129,9 +131,16 @@ export function QuestionList({
       const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
       const matchesType = typeFilter === "ALL" || questionType === typeFilter;
 
-      return matchesSearch && matchesDifficulty && matchesDomain && matchesSubDomain && matchesType;
+      // Status logic
+      const isSolved = userSolved.includes(q.id);
+      const matchesStatus = 
+        statusFilter === "ALL" || 
+        (statusFilter === "SOLVED" && isSolved) || 
+        (statusFilter === "UNSOLVED" && !isSolved);
+
+      return matchesSearch && matchesDifficulty && matchesDomain && matchesSubDomain && matchesType && matchesStatus;
     });
-  }, [questionsWithSrNo, searchQuery, difficultyFilter, typeFilter, domainFilter, subDomainFilter]);
+  }, [questionsWithSrNo, searchQuery, difficultyFilter, typeFilter, domainFilter, subDomainFilter, statusFilter, userSolved]);
 
   if (questions.length === 0) {
     return (
@@ -157,71 +166,94 @@ export function QuestionList({
           />
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Domain:</span>
-            <Select value={domainFilter} onValueChange={(value) => {
-              setDomainFilter(value as string);
-              setSubDomainFilter("ALL");
-            }}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All</SelectItem>
-                {uniqueDomains.map((d) => (
-                  <SelectItem key={d} value={d}>
-                    {d}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!isAdmin && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Status:</span>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as string)}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All</SelectItem>
+                  <SelectItem value="SOLVED">Solved</SelectItem>
+                  <SelectItem value="UNSOLVED">Unsolved</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Sub-Domain:</span>
-            <Select value={subDomainFilter} onValueChange={(value) => setSubDomainFilter(value as string)} disabled={uniqueSubDomains.length === 0}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All</SelectItem>
-                {uniqueSubDomains.map((sd) => (
-                  <SelectItem key={sd} value={sd}>
-                    {sd}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Popover>
+            <PopoverTrigger className={buttonVariants({ variant: "outline", className: "flex items-center gap-2" })}>
+              <Filter className="h-4 w-4" />
+              Filters
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-[300px] p-4 space-y-4">
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-muted-foreground">Domain:</span>
+                <Select value={domainFilter} onValueChange={(value) => {
+                  setDomainFilter(value as string);
+                  setSubDomainFilter("ALL");
+                }}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All</SelectItem>
+                    {uniqueDomains.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Type:</span>
-            <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as string)}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All</SelectItem>
-                <SelectItem value="Algorithmic Problem Solving Challenges">Algorithmic Problem Solving Challenges</SelectItem>
-                <SelectItem value="Project Definition / Idea / Prototype">Project Definition / Idea / Prototype</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-muted-foreground">Sub-Domain:</span>
+                <Select value={subDomainFilter} onValueChange={(value) => setSubDomainFilter(value as string)} disabled={uniqueSubDomains.length === 0}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All</SelectItem>
+                    {uniqueSubDomains.map((sd) => (
+                      <SelectItem key={sd} value={sd}>
+                        {sd}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Difficulty:</span>
-            <Select value={difficultyFilter} onValueChange={(value) => setDifficultyFilter(value as string)}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All</SelectItem>
-                <SelectItem value="EASY">Easy</SelectItem>
-                <SelectItem value="MEDIUM">Medium</SelectItem>
-                <SelectItem value="HARD">Hard</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-muted-foreground">Type:</span>
+                <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as string)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All</SelectItem>
+                    <SelectItem value="Algorithmic Problem Solving Challenges">Algorithmic Problem Solving Challenges</SelectItem>
+                    <SelectItem value="Project Definition / Idea / Prototype">Project Definition / Idea / Prototype</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-muted-foreground">Difficulty:</span>
+                <Select value={difficultyFilter} onValueChange={(value) => setDifficultyFilter(value as string)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All</SelectItem>
+                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                    <SelectItem value="HARD">Hard</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -259,7 +291,7 @@ export function QuestionList({
                     <TableCell className="font-medium text-muted-foreground">
                       {q.srNo}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-[200px] sm:max-w-[300px] lg:max-w-[400px] whitespace-normal break-words">
                       <Link
                         href={`${basePath}/${q.id}`}
                         className="font-medium hover:underline"
@@ -322,7 +354,7 @@ export function QuestionList({
                                 onClick={() => handleSolved(q.id)}
                                 className={`transition-all hover:scale-110 hover:text-primary hover:bg-primary/10 ${userSolved.includes(q.id) ? "text-primary" : ""}`}
                               >
-                                <CheckCircle className={`h-4 w-4 ${userSolved.includes(q.id) ? "fill-current text-primary" : ""}`} />
+                                <CheckCircle className={`h-4 w-4 ${userSolved.includes(q.id) ? "fill-primary text-white" : ""}`} />
                               </Button>
                             </>
                           )}

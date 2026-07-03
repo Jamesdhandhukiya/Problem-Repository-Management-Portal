@@ -89,11 +89,13 @@ export function ModeratorManagementTable({ users }: { users: User[] }) {
     setLoading(true);
     const formData = new FormData(e.currentTarget);
     const name = formData.get("name") as string;
+    const password = formData.get("password") as string;
     
     const result = await updateUserAction(selectedUser.id, { 
       name,
       domain: null,
-      department: null
+      department: null,
+      ...(password ? { password } : {})
     });
     
     setLoading(false);
@@ -263,6 +265,10 @@ export function ModeratorManagementTable({ users }: { users: User[] }) {
               <div className="space-y-2">
                 <Label>Email</Label>
                 <Input value={selectedUser.email} disabled />
+              </div>
+              <div className="space-y-2">
+                <Label>New Password (Optional)</Label>
+                <Input name="password" type="password" placeholder="Leave blank to keep current password" />
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={loading}>

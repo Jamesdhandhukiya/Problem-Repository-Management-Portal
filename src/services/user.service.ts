@@ -64,22 +64,32 @@ export async function updateUser(
     domain?: string | null;
     department?: string | null;
     semester?: number | null;
+    password?: string;
   },
   adminId: string
 ) {
   const existing = await prisma.user.findUnique({ where: { id: userId } });
   if (!existing) throw new Error("User not found");
 
+  const { password, ...prismaData } = data;
+
   const user = await prisma.user.update({
     where: { id: userId },
-    data,
+    data: prismaData,
   });
 
-  if (data.role && existing.supabaseId) {
+  if ((data.role || password) && existing.supabaseId) {
     const supabase = await createServiceClient();
-    await supabase.auth.admin.updateUserById(existing.supabaseId, {
-      app_metadata: { role: data.role },
-    });
+    
+    const updatePayload: any = {};
+    if (data.role) {
+      updatePayload.app_metadata = { role: data.role };
+    }
+    if (password) {
+      updatePayload.password = password.length < 6 ? password.padEnd(6, '0') : password;
+    }
+    
+    await supabase.auth.admin.updateUserById(existing.supabaseId, updatePayload);
   }
 
   await createAuditLog({

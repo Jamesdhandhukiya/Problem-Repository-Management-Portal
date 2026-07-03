@@ -7,7 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginSchema, type LoginInput } from "@/validations";
@@ -221,6 +222,23 @@ export function LoginForm() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password" className="text-[#333333] font-medium">Password</Label>
+              <Dialog>
+                <DialogTrigger className={buttonVariants({ variant: "link", className: "p-0 h-auto text-sm text-[#4A89F3] hover:text-[#4A89F3]/80" })}>
+                  Forgot password?
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Reset Password</DialogTitle>
+                    <DialogDescription className="pt-2 text-base text-[#333333]">
+                      To request a password reset, please contact the administrator:
+                      <br /><br />
+                      <strong>Email:</strong> <a href="mailto:amitnayak.it@charusat.ac.in" className="text-[#4A89F3] hover:underline">amitnayak.it@charusat.ac.in</a>
+                      <br />
+                      <strong>Email:</strong> <a href="mailto:jamesdhandhukiya@gmail.com" className="text-[#4A89F3] hover:underline">jamesdhandhukiya@gmail.com</a>
+                    </DialogDescription>
+                  </DialogHeader>
+                </DialogContent>
+              </Dialog>
             </div>
             <div className="relative">
               <Input

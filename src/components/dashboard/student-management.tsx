@@ -291,12 +291,14 @@ export function StudentManagementTable({ users }: { users: User[] }) {
     const semesterVal = formData.get("semester") as string;
     const name = formData.get("name") as string;
     const status = formData.get("status") as User["status"];
+    const password = formData.get("password") as string;
 
     const result = await updateUserAction(selectedUser.id, { 
       department: department || null,
       semester: semesterVal ? parseInt(semesterVal, 10) : null,
       name,
-      status
+      status,
+      ...(password ? { password } : {})
     });
     
     setLoading(false);
@@ -648,6 +650,10 @@ export function StudentManagementTable({ users }: { users: User[] }) {
                     <SelectItem value="DISABLED">DISABLED</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>New Password (Optional)</Label>
+                <Input name="password" type="password" placeholder="Leave blank to keep current password" />
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={loading}>
