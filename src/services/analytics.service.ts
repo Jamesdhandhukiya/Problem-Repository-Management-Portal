@@ -1,4 +1,4 @@
-import { format, startOfMonth, subMonths } from "date-fns";
+import { format, startOfMonth, subMonths, startOfDay, endOfDay, subDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import type { ChartDataPoint, DashboardStats } from "@/types";
 
@@ -48,12 +48,20 @@ export async function getQuestionsByDifficulty(): Promise<ChartDataPoint[]> {
 export async function getQuestionsByTopic(): Promise<ChartDataPoint[]> {
   const topics = await prisma.topic.findMany({
     include: { _count: { select: { questions: true } } },
-    orderBy: { name: "asc" },
   });
 
-  return topics
-    .filter((t) => t._count.questions > 0)
-    .map((t) => ({ name: t.name, value: t._count.questions }));
+  const merged = topics.reduce((acc, t) => {
+    const name = t.name.trim();
+    const existing = acc.find((a) => a.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      existing.value += t._count.questions;
+    } else {
+      acc.push({ name, value: t._count.questions });
+    }
+    return acc;
+  }, [] as ChartDataPoint[]);
+
+  return merged.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function getMonthlySubmissions(): Promise<ChartDataPoint[]> {
@@ -81,13 +89,12 @@ export async function getFacultyContribution(): Promise<ChartDataPoint[]> {
   const staff = await prisma.user.findMany({
     where: { role: "STAFF", status: "ACTIVE" },
     include: { _count: { select: { questionsCreated: true } } },
-    orderBy: { questionsCreated: { _count: "desc" } },
-    take: 10,
   });
 
   return staff.map((s) => ({
-    name: s.name.split(" ")[0],
+    name: s.name,
     value: s._count.questionsCreated,
+    department: s.department,
   }));
 }
 
@@ -286,5 +293,57 @@ export async function getApprovalReportData() {
       moderator: { select: { name: true, email: true } },
     },
     orderBy: { reviewedAt: "desc" },
+  });
+}
+
+export async function getWeeklyAccessGraph(): Promise<ChartDataPoint[]> {
+  const days: ChartDataPoint[] = [];
+  const now = new Date();
+  
+  for (let i = 6; i >= 0; i--) {
+    const start = startOfDay(subDays(now, i));
+    const end = endOfDay(subDays(now, i));
+    
+    const sessions = await prisma.sessionLog.aggregate({
+      where: { loginAt: { gte: start, lte: end } },
+      _sum: { duration: true },
+    });
+    
+    days.push({
+      name: format(start, "EEE"), // Mon, Tue, etc.
+      value: Math.round(((sessions._sum.duration || 0) / 60) * 10) / 10, // minutes, rounded to 1 decimal
+    });
+  }
+  return days;
+}
+
+export async function getMonthlyStudentLogins(): Promise<ChartDataPoint[]> {
+  const months: ChartDataPoint[] = [];
+  const now = new Date();
+  
+  for (let i = 5; i >= 0; i--) {
+    const start = startOfMonth(subMonths(now, i));
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+    
+    const count = await prisma.sessionLog.count({
+      where: { 
+        loginAt: { gte: start, lte: end },
+        user: { role: "STUDENT" }
+      },
+    });
+    
+    months.push({
+      name: format(start, "MMM"),
+      value: count,
+    });
+  }
+  return months;
+}
+
+export async function getLastLogins() {
+  return prisma.user.findMany({
+    where: { role: { in: ["STAFF", "MODERATOR"] } },
+    select: { name: true, role: true, lastLoginAt: true, email: true },
+    orderBy: { lastLoginAt: { sort: "desc", nulls: "last" } },
   });
 }

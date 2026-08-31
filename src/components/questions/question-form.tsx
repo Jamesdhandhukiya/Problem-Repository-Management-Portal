@@ -25,7 +25,7 @@ import { questionSchema, type QuestionInput } from "@/validations";
 import { THEORY_DOMAINS, CODING_DOMAINS, type TheoryDomainKey, type CodingDomainKey } from "@/lib/domains";
 
 type QuestionFormProps = {
-  topics: (Topic & { subtopics: { id: string; name: string }[] })[];
+  topics: Topic[];
   initialData?: Partial<QuestionInput> & { id?: string };
   type?: string;
   userDomain?: string | null;
@@ -42,6 +42,10 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
   }
   
   const isTheory = type === "theory" || (!type && topicName && !(topicName in CODING_DOMAINS));
+  const currentDomains = isTheory ? THEORY_DOMAINS : CODING_DOMAINS;
+  const isCustomDomain = topicName && !(topicName in currentDomains);
+
+  const [customDomain, setCustomDomain] = useState(isCustomDomain ? (topicName as string) : "");
 
   const {
     register,
@@ -58,7 +62,7 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
       referenceLinks: [],
       tags: [],
       companyTags: [],
-      topicId: initialData?.topicId || "",
+      topicId: isCustomDomain ? "Other" : (topicName || ""),
       ...initialData,
     },
   });
@@ -75,7 +79,14 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
       referenceLinks: data.referenceLinks?.length
         ? data.referenceLinks
         : parseCommaList(watch("referenceLinks") as unknown as string),
+      topicId: data.topicId === "Other" ? customDomain.trim() : data.topicId,
     };
+
+    if (data.topicId === "Other" && !customDomain.trim()) {
+      toast.error("Please specify the custom domain");
+      setLoading(false);
+      return;
+    }
 
     const result = initialData?.id
       ? await updateQuestionAction(initialData.id, payload, saveAs)
@@ -94,9 +105,6 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
     router.push("/staff/questions");
     router.refresh();
   }
-
-  const currentDomains = isTheory ? THEORY_DOMAINS : CODING_DOMAINS;
-
   return (
     <form className="space-y-6">
       <Card>
@@ -138,7 +146,6 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
               value={watch("topicId")}
               onValueChange={(v) => {
                 setValue("topicId", v as any, { shouldValidate: true });
-                setValue("subtopicId", undefined as any);
               }}
             >
               <SelectTrigger>
@@ -150,38 +157,30 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
                 ))}
               </SelectContent>
             </Select>
+            {watch("topicId") === "Other" && (
+              <div className="mt-2">
+                <Input 
+                  placeholder="Enter custom domain name"
+                  value={customDomain}
+                  onChange={(e) => setCustomDomain(e.target.value)}
+                  required
+                />
+              </div>
+            )}
             {errors.topicId && (
               <p className="text-sm text-destructive">{errors.topicId.message}</p>
             )}
           </div>
-          <div className="space-y-2">
-            <Label>Sub-Domain</Label>
-            <Select
-              disabled={!watch("topicId")}
-              value={watch("subtopicId") || ""}
-              onValueChange={(v) => setValue("subtopicId", v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a Sub-Domain" />
-              </SelectTrigger>
-              <SelectContent>
-                {((currentDomains as any)[watch("topicId")] || []).map((sd: string) => (
-                  <SelectItem key={sd} value={sd}>{sd}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Tags (comma-separated)</Label>
-            <Input placeholder="array, hash-map" {...register("tags" as keyof QuestionInput)} />
-          </div>
 
           <div className="space-y-2 md:col-span-2">
-            <Label>{isTheory ? "Problem Definition" : "Problem Statement"}</Label>
+            <Label>
+              {isTheory 
+                ? "Problem Definition" 
+                : "Problem Statement (Please include constraints, input/output formats, sample cases, and expected complexity)"}
+            </Label>
             <Textarea
               {...register("statement")}
               rows={6}
-              placeholder={isTheory ? "Define the problem clearly..." : "Describe the problem..."}
             />
             {errors.statement && (
               <p className="text-sm text-destructive">{errors.statement.message}</p>
@@ -202,39 +201,7 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
         </CardContent>
       </Card>
 
-      {!isTheory && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Input / Output</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Constraints</Label>
-              <Textarea {...register("constraints")} rows={3} />
-            </div>
-            <div className="space-y-2">
-              <Label>Input Format</Label>
-              <Textarea {...register("inputFormat")} rows={3} />
-            </div>
-            <div className="space-y-2">
-              <Label>Output Format</Label>
-              <Textarea {...register("outputFormat")} rows={3} />
-            </div>
-            <div className="space-y-2">
-              <Label>Sample Input</Label>
-              <Textarea {...register("sampleInput")} rows={3} />
-            </div>
-            <div className="space-y-2">
-              <Label>Sample Output</Label>
-              <Textarea {...register("sampleOutput")} rows={3} />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label>Hidden Test Cases</Label>
-              <Textarea {...register("hiddenTestCases")} rows={3} />
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       <Card>
         <CardHeader>
@@ -256,18 +223,7 @@ export function QuestionForm({ topics, initialData, type, userDomain }: Question
             <Label>{isTheory ? "Source Link (Optional, comma-separated URLs)" : "Reference Links (Optional, comma-separated URLs)"}</Label>
             <Input placeholder="https://..." {...register("referenceLinks" as keyof QuestionInput)} />
           </div>
-          {!isTheory && (
-            <>
-              <div className="space-y-2">
-                <Label>Expected Time Complexity</Label>
-                <Input placeholder="O(n)" {...register("expectedTimeComplexity")} />
-              </div>
-              <div className="space-y-2">
-                <Label>Expected Space Complexity</Label>
-                <Input placeholder="O(1)" {...register("expectedSpaceComplexity")} />
-              </div>
-            </>
-          )}
+
         </CardContent>
       </Card>
 

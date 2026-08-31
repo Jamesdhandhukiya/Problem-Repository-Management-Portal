@@ -197,3 +197,14 @@ export async function logLogin(userId: string) {
     newValue: { timestamp: new Date().toISOString() },
   });
 }
+
+export async function getPreviousSession(userId: string) {
+  const sessions = await prisma.sessionLog.findMany({
+    where: { userId },
+    orderBy: { loginAt: "desc" },
+    take: 2,
+  });
+  
+  if (sessions.length < 2) return null;
+  return sessions[1].loginAt;
+}

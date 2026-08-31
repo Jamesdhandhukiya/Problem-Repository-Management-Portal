@@ -2,10 +2,10 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Bookmark, CheckCircle, Search, BookOpen, Trash2, Filter } from "lucide-react";
+import { Bookmark, CheckCircle, Search, BookOpen, Trash2, Filter, Eye } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { QuestionWithRelations } from "@/types";
-import { CODING_DOMAINS } from "@/lib/domains";
+import { CODING_DOMAINS, THEORY_DOMAINS } from "@/lib/domains";
 import { toggleBookmarkAction, toggleSolvedAction, deleteQuestionAction } from "@/app/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,9 @@ export function QuestionList({
   userSolved = [],
   isAdmin = false,
   basePath = "/student/questions",
+  showStatusFilter = true,
+  showBookmarkAction = true,
+  showSolveAction = true,
 }: {
   questions: QuestionWithRelations[];
   showActions?: boolean;
@@ -44,6 +47,9 @@ export function QuestionList({
   userSolved?: string[];
   isAdmin?: boolean;
   basePath?: string;
+  showStatusFilter?: boolean;
+  showBookmarkAction?: boolean;
+  showSolveAction?: boolean;
 }) {
   const router = useRouter();
 
@@ -51,7 +57,7 @@ export function QuestionList({
   const [difficultyFilter, setDifficultyFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [domainFilter, setDomainFilter] = useState("ALL");
-  const [subDomainFilter, setSubDomainFilter] = useState("ALL");
+
   const [statusFilter, setStatusFilter] = useState("ALL");
 
   const uniqueDomains = useMemo(() => {
@@ -59,14 +65,6 @@ export function QuestionList({
     return Array.from(domains).sort();
   }, [questions]);
 
-  const uniqueSubDomains = useMemo(() => {
-    let qs = questions;
-    if (domainFilter !== "ALL") {
-      qs = questions.filter(q => q.topic.name === domainFilter);
-    }
-    const subDomains = new Set(qs.map((q) => q.subtopic?.name).filter(Boolean));
-    return Array.from(subDomains).sort() as string[];
-  }, [questions, domainFilter]);
 
   const questionsWithSrNo = useMemo(() => {
     return questions.map((q, idx) => ({ ...q, srNo: idx + 1 }));
@@ -90,7 +88,7 @@ export function QuestionList({
 
   async function handleDelete(id: string) {
     if (!confirm("Are you sure you want to delete this question? This action cannot be undone and will remove it from the student page as well.")) return;
-    
+
     const result = await deleteQuestionAction(id);
     if ("error" in result && result.error) toast.error(result.error);
     else toast.success("Question deleted successfully");
@@ -101,7 +99,7 @@ export function QuestionList({
       // Search logic
       const query = searchQuery.toLowerCase();
       const domain = q.topic.name.toLowerCase();
-      const subDomain = (q.subtopic?.name || "").toLowerCase();
+
       const author = q.createdBy.name.toLowerCase();
       const title = q.title.toLowerCase();
       const srNoStr = String(q.srNo);
@@ -110,7 +108,7 @@ export function QuestionList({
         !query ||
         title.includes(query) ||
         domain.includes(query) ||
-        subDomain.includes(query) ||
+
         author.includes(query) ||
         srNoStr === query;
 
@@ -121,26 +119,23 @@ export function QuestionList({
       // Domain logic
       const matchesDomain =
         domainFilter === "ALL" || q.topic.name === domainFilter;
-        
-      // Sub-domain logic
-      const matchesSubDomain =
-        subDomainFilter === "ALL" || (q.subtopic?.name || "") === subDomainFilter;
+
 
       // Type logic
-      const isCoding = q.topic.name in CODING_DOMAINS;
-      const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
+      const isProject = Boolean(q.inputFormat?.trim() || q.outputFormat?.trim()) || (q.topic.name in THEORY_DOMAINS);
+      const questionType = isProject ? "Project Definition / Idea / Prototype" : "Algorithmic Problem Solving Challenges";
       const matchesType = typeFilter === "ALL" || questionType === typeFilter;
 
       // Status logic
       const isSolved = userSolved.includes(q.id);
-      const matchesStatus = 
-        statusFilter === "ALL" || 
-        (statusFilter === "SOLVED" && isSolved) || 
+      const matchesStatus =
+        statusFilter === "ALL" ||
+        (statusFilter === "SOLVED" && isSolved) ||
         (statusFilter === "UNSOLVED" && !isSolved);
 
-      return matchesSearch && matchesDifficulty && matchesDomain && matchesSubDomain && matchesType && matchesStatus;
+      return matchesSearch && matchesDifficulty && matchesDomain && matchesType && matchesStatus;
     });
-  }, [questionsWithSrNo, searchQuery, difficultyFilter, typeFilter, domainFilter, subDomainFilter, statusFilter, userSolved]);
+  }, [questionsWithSrNo, searchQuery, difficultyFilter, typeFilter, domainFilter, statusFilter, userSolved]);
 
   if (questions.length === 0) {
     return (
@@ -166,7 +161,7 @@ export function QuestionList({
           />
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          {!isAdmin && (
+          {!isAdmin && showStatusFilter && (
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-muted-foreground">Status:</span>
               <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as string)}>
@@ -192,7 +187,7 @@ export function QuestionList({
                 <span className="text-sm font-medium text-muted-foreground">Domain:</span>
                 <Select value={domainFilter} onValueChange={(value) => {
                   setDomainFilter(value as string);
-                  setSubDomainFilter("ALL");
+
                 }}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="All" />
@@ -208,22 +203,6 @@ export function QuestionList({
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <span className="text-sm font-medium text-muted-foreground">Sub-Domain:</span>
-                <Select value={subDomainFilter} onValueChange={(value) => setSubDomainFilter(value as string)} disabled={uniqueSubDomains.length === 0}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All</SelectItem>
-                    {uniqueSubDomains.map((sd) => (
-                      <SelectItem key={sd} value={sd}>
-                        {sd}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               <div className="space-y-2">
                 <span className="text-sm font-medium text-muted-foreground">Type:</span>
@@ -261,21 +240,20 @@ export function QuestionList({
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="w-[80px]">Sr. No.</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Domain</TableHead>
-              <TableHead>Sub-Domain</TableHead>
-              <TableHead>Difficulty</TableHead>
-              <TableHead>Author</TableHead>
-              {showActions && <TableHead>Actions</TableHead>}
+              <TableHead className="text-center w-[80px] border-r border-slate-300 dark:border-slate-700">Sr. No.</TableHead>
+              <TableHead className="text-center min-w-[200px] border-r border-slate-300 dark:border-slate-700">Title</TableHead>
+              <TableHead className="text-center min-w-[220px] border-r border-slate-300 dark:border-slate-700">Type</TableHead>
+              <TableHead className="text-center min-w-[200px] border-r border-slate-300 dark:border-slate-700">Domain</TableHead>
+              <TableHead className="text-center w-[120px] border-r border-slate-300 dark:border-slate-700">Difficulty</TableHead>
+              {isAdmin && <TableHead className="text-center w-[150px] border-r border-slate-300 dark:border-slate-700">Author</TableHead>}
+              {showActions && <TableHead className="text-center min-w-[150px]">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredQuestions.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={showActions ? 8 : 7}
+                  colSpan={showActions ? 7 : 6}
                   className="h-24 text-center text-muted-foreground"
                 >
                   No questions match your search and filters.
@@ -283,79 +261,110 @@ export function QuestionList({
               </TableRow>
             ) : (
               filteredQuestions.map((q) => {
-                const isCoding = q.topic.name in CODING_DOMAINS;
-                const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
+                const isProject = Boolean(q.inputFormat?.trim() || q.outputFormat?.trim()) || (q.topic.name in THEORY_DOMAINS);
+                const questionType = isProject ? "Project Definition / Idea / Prototype" : "Algorithmic Problem Solving Challenges";
+                const isCoding = !isProject;
 
                 return (
                   <TableRow key={q.id}>
-                    <TableCell className="font-medium text-muted-foreground">
+                    <TableCell className="font-medium text-muted-foreground text-center border-r border-slate-300 dark:border-slate-700">
                       {q.srNo}
                     </TableCell>
-                    <TableCell className="max-w-[200px] sm:max-w-[300px] lg:max-w-[400px] whitespace-normal break-words">
-                      <Link
-                        href={`${basePath}/${q.id}`}
-                        className="font-medium hover:underline"
-                      >
-                        {q.title}
-                      </Link>
+                    <TableCell className="text-center border-r border-slate-300 dark:border-slate-700">
+                      <span className="max-w-[200px] sm:max-w-[300px] lg:max-w-[400px] mx-auto whitespace-normal break-words">
+                        <Link
+                          href={`${basePath}/${q.id}`}
+                          className="font-medium hover:underline"
+                        >
+                          {q.title}
+                        </Link>
+                      </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center border-r border-slate-300 dark:border-slate-700">
                       <Badge
                         variant="outline"
-                        className={
-                          isCoding
+                        className={`h-auto min-h-5 max-w-full whitespace-normal text-center ${isCoding
                             ? "border-primary/20 text-primary"
                             : "border-muted"
-                        }
+                          }`}
                       >
                         {questionType}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="whitespace-nowrap">{q.topic.name}</Badge>
+                    <TableCell className="text-center border-r border-slate-300 dark:border-slate-700">
+                      <span>
+                        <Badge className="h-auto min-h-5 whitespace-normal text-center bg-slate-900 hover:bg-slate-800 text-slate-50 border-slate-900 dark:bg-slate-50 dark:hover:bg-slate-200 dark:text-slate-900">
+                          {q.topic.name}
+                        </Badge>
+                      </span>
                     </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-muted-foreground whitespace-nowrap">{q.subtopic?.name || "-"}</span>
-                    </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center border-r border-slate-300 dark:border-slate-700">
                       <Badge variant="outline">
                         {DIFFICULTY_LABELS[q.difficulty]}
                       </Badge>
                     </TableCell>
-                    <TableCell>{q.createdBy.name}</TableCell>
+                    {isAdmin && <TableCell className="text-center border-r border-slate-300 dark:border-slate-700">{q.createdBy.name}</TableCell>}
                     {showActions && (
-                      <TableCell>
-                        <div className="flex gap-1">
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1 whitespace-nowrap">
                           {isAdmin ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Delete Question"
-                              onClick={() => handleDelete(q.id)}
-                              className="transition-all hover:scale-110 hover:text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="View Question"
+                                className="transition-all hover:scale-110 hover:text-primary hover:bg-primary/10"
+                                asChild
+                              >
+                                <Link href={`${basePath}/${q.id}`}>
+                                  <Eye className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Delete Question"
+                                onClick={() => handleDelete(q.id)}
+                                className="transition-all hover:scale-110 hover:text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
                           ) : (
                             <>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                title="Bookmark"
-                                onClick={() => handleBookmark(q.id)}
-                                className={`transition-all hover:scale-110 hover:text-primary hover:bg-primary/10 ${userBookmarks.includes(q.id) ? "text-primary" : ""}`}
+                                title="View Question"
+                                className="transition-all hover:scale-110 hover:text-primary hover:bg-primary/10"
+                                asChild
                               >
-                                <Bookmark className={`h-4 w-4 ${userBookmarks.includes(q.id) ? "fill-current" : ""}`} />
+                                <Link href={`${basePath}/${q.id}`}>
+                                  <Eye className="h-4 w-4" />
+                                </Link>
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Mark as solved"
-                                onClick={() => handleSolved(q.id)}
-                                className={`transition-all hover:scale-110 hover:text-primary hover:bg-primary/10 ${userSolved.includes(q.id) ? "text-primary" : ""}`}
-                              >
-                                <CheckCircle className={`h-4 w-4 ${userSolved.includes(q.id) ? "fill-primary text-white" : ""}`} />
-                              </Button>
+                              {showBookmarkAction && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  title="Bookmark"
+                                  onClick={() => handleBookmark(q.id)}
+                                  className={`transition-all hover:scale-110 hover:text-primary hover:bg-primary/10 ${userBookmarks.includes(q.id) ? "text-primary" : ""}`}
+                                >
+                                  <Bookmark className={`h-4 w-4 ${userBookmarks.includes(q.id) ? "fill-current" : ""}`} />
+                                </Button>
+                              )}
+                              {showSolveAction && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  title="Mark as solved"
+                                  onClick={() => handleSolved(q.id)}
+                                  className={`transition-all hover:scale-110 hover:text-primary hover:bg-primary/10 ${userSolved.includes(q.id) ? "text-primary" : ""}`}
+                                >
+                                  <CheckCircle className={`h-4 w-4 ${userSolved.includes(q.id) ? "fill-primary text-white" : ""}`} />
+                                </Button>
+                              )}
                             </>
                           )}
                         </div>

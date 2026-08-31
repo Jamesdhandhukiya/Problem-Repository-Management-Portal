@@ -25,12 +25,15 @@ export async function getAuditLogs(options?: {
   page?: number;
   limit?: number;
   module?: string;
+  role?: "ADMIN" | "STAFF" | "MODERATOR" | "STUDENT";
 }) {
   const page = options?.page ?? 1;
   const limit = options?.limit ?? 20;
   const skip = (page - 1) * limit;
 
-  const where = options?.module ? { module: options.module } : {};
+  const where: Prisma.AuditLogWhereInput = {};
+  if (options?.module) where.module = options.module;
+  if (options?.role) where.user = { role: options.role };
 
   const [data, total] = await Promise.all([
     prisma.auditLog.findMany({

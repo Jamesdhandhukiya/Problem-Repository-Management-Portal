@@ -51,7 +51,6 @@ export const questionSchema = z.object({
   statement: z.string().min(20, "Problem statement must be at least 20 characters"),
   difficulty: z.enum(["EASY", "MEDIUM", "HARD"]),
   topicId: z.string().min(1, "Topic is required"),
-  subtopicId: z.string().optional().nullable(),
   constraints: z.string().optional(),
   inputFormat: z.string().optional(),
   outputFormat: z.string().optional(),

@@ -20,7 +20,7 @@ import { useSearchStore } from "@/store";
 
 type Topic = { id: string; name: string };
 
-export function GlobalSearch({ topics }: { topics: Topic[] }) {
+export function GlobalSearch({ topics, basePath }: { topics: Topic[], basePath: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { filters, setFilter, resetFilters } = useSearchStore();
@@ -162,7 +162,7 @@ export function GlobalSearch({ topics }: { topics: Topic[] }) {
       {questions.length > 0 && (
         <>
           <p className="text-sm text-muted-foreground">{total} results found</p>
-          <QuestionList questions={questions} showActions={false} />
+          <QuestionList questions={questions} showActions={false} basePath={basePath} />
           <div className="flex justify-center gap-2">
             <Button
               variant="outline"

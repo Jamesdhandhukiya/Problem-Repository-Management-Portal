@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginSchema, type LoginInput } from "@/validations";
 import { isStudentEmail } from "@/lib/student-utils";
-import { autoConfirmStudentEmailAction } from "@/app/actions";
+import { autoConfirmStudentEmailAction, recordLoginAction } from "@/app/actions";
 
 export function LoginForm() {
   const router = useRouter();
@@ -65,10 +65,10 @@ export function LoginForm() {
     const studentEmail = isStudentEmail(data.email);
 
     // Helper function to handle post-login redirects and setup checks
-    async function handlePostLoginRedirect() {
+    async function handlePostLoginRedirect(email: string) {
+      await recordLoginAction(email);
       const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
-      router.push(redirectTo);
-      router.refresh();
+      window.location.href = redirectTo;
     }
 
     // Helper function to auto-confirm the email in the DB and complete the login
@@ -97,7 +97,7 @@ export function LoginForm() {
       }
 
       // 3. Complete redirect
-      await handlePostLoginRedirect();
+      await handlePostLoginRedirect(data.email);
     }
 
     try {
@@ -110,7 +110,7 @@ export function LoginForm() {
       });
 
       if (!loginErr) {
-        await handlePostLoginRedirect();
+        await handlePostLoginRedirect(data.email);
         return;
       }
 

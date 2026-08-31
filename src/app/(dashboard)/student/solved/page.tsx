@@ -13,7 +13,7 @@ export default async function StudentSolvedPage() {
         <h1 className="text-3xl font-bold tracking-tight">Solved Questions</h1>
         <p className="text-muted-foreground">Questions you have completed.</p>
       </div>
-      <QuestionList questions={questions} showActions={false} />
+      <QuestionList questions={questions} showActions={true} showStatusFilter={false} showBookmarkAction={false} showSolveAction={false} />
     </div>
   );
 }

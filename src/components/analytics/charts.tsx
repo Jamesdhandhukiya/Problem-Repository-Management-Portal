@@ -15,6 +15,7 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ChartDataPoint } from "@/types";
 
 const COLORS = [
@@ -151,6 +152,71 @@ export function LineChartCard({
             />
           </LineChart>
         </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function DistributionListCard({
+  title,
+  description,
+  data,
+}: {
+  title: string;
+  description?: string;
+  data: ChartDataPoint[];
+}) {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const sortedData = [...data].sort((a, b) => b.value - a.value);
+  const hasDepartment = sortedData.some(item => item.department !== undefined && item.department !== null);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+          {sortedData.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground p-4">
+              No data available
+            </div>
+          ) : (
+            <Table>
+              <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  {hasDepartment && <TableHead>Department</TableHead>}
+                  <TableHead className="text-right">Count</TableHead>
+                  <TableHead className="text-right">%</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedData.map((item, i) => {
+                  const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : "0";
+                  return (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                          <span className="truncate" title={item.name}>{item.name}</span>
+                        </div>
+                      </TableCell>
+                      {hasDepartment && (
+                        <TableCell className="text-muted-foreground">
+                          {item.department || "-"}
+                        </TableCell>
+                      )}
+                      <TableCell className="text-right font-semibold">{item.value}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{percentage}%</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

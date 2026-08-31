@@ -18,15 +18,16 @@ import {
   Code2,
   CheckCircle
 } from "lucide-react";
-import { CODING_DOMAINS } from "@/lib/domains";
+import { CODING_DOMAINS, THEORY_DOMAINS } from "@/lib/domains";
 
 export function ModeratorQuestionView({
   question,
 }: {
   question: QuestionWithRelations;
 }) {
-  const isCoding = question.topic.name in CODING_DOMAINS;
-  const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
+  const isProject = Boolean(question.inputFormat?.trim() || question.outputFormat?.trim()) || (question.topic.name in THEORY_DOMAINS);
+  const questionType = isProject ? "Project Definition / Idea / Prototype" : "Algorithmic Problem Solving Challenges";
+  const isCoding = !isProject;
 
   // Prepare reviews for display: chronological order to get submission numbers, then reversed for display
   const rejectedReviews = [...(question.reviews || [])]
@@ -54,12 +55,7 @@ export function ModeratorQuestionView({
             <span className="font-semibold text-foreground/70 mr-1.5 uppercase text-[10px] tracking-wider">Domain:</span> 
             {question.topic.name}
           </Badge>
-          {question.subtopic && (
-            <Badge variant="outline" className="border-border text-muted-foreground px-2.5 py-1">
-              <span className="font-semibold text-foreground/70 mr-1.5 uppercase text-[10px] tracking-wider">Sub-Domain:</span> 
-              {question.subtopic.name}
-            </Badge>
-          )}
+
           <Badge 
             variant="outline" 
             className={

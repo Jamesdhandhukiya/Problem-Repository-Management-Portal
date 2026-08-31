@@ -53,16 +53,31 @@ model User {
   status     UserStatus @default(ACTIVE)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
+  lastLoginAt DateTime?
 
   questionsCreated Question[]       @relation("CreatedBy")
   reviews          Review[]
   bookmarks        Bookmark[]
   solvedQuestions  SolvedQuestion[]
   notifications    Notification[]
+  suggestions      Suggestion[]
   auditLogs        AuditLog[]
+  sessions         SessionLog[]
 
   @@index([role])
   @@index([status])
+}
+
+model SessionLog {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loginAt   DateTime  @default(now())
+  logoutAt  DateTime?
+  duration  Int?      // duration in seconds
+
+  @@index([userId])
+  @@index([loginAt])
 }
 
 model Topic {
@@ -72,23 +87,10 @@ model Topic {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  subtopics Subtopic[]
   questions Question[]
 }
 
-model Subtopic {
-  id        String   @id @default(cuid())
-  name      String
-  topicId   String
-  topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  questions Question[]
-
-  @@unique([topicId, name])
-  @@index([topicId])
-}
 
 model Question {
   id                      String         @id @default(cuid())
@@ -97,8 +99,6 @@ model Question {
   difficulty              Difficulty
   topicId                 String
   topic                   Topic          @relation(fields: [topicId], references: [id])
-  subtopicId              String?
-  subtopic                Subtopic?      @relation(fields: [subtopicId], references: [id])
   constraints             String?        @db.Text
   inputFormat             String?        @db.Text
   outputFormat            String?        @db.Text
@@ -117,9 +117,10 @@ model Question {
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
 
-  reviews   Review[]
-  bookmarks Bookmark[]
-  solvedBy  SolvedQuestion[]
+  reviews     Review[]
+  bookmarks   Bookmark[]
+  solvedBy    SolvedQuestion[]
+  suggestions Suggestion[]
 
   @@index([status])
   @@index([difficulty])
@@ -177,6 +178,20 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model Suggestion {
+  id         String   @id @default(cuid())
+  content    String   @db.Text
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  facultyId  String
+  faculty    User     @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([questionId])
+  @@index([facultyId])
   @@index([createdAt])
 }
 

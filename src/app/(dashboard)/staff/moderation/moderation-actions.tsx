@@ -30,7 +30,7 @@ export function ModerationActions({ questionId, status, reviews }: { questionId:
       {hasComments && (
         <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
           <MessageSquare className="w-4 h-4 mr-2" />
-          View History
+          View Feedback
         </Button>
       )}
       {canRevise && (

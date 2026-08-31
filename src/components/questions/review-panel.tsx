@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DIFFICULTY_LABELS, QUESTION_STATUS_LABELS } from "@/types";
 import { format } from "date-fns";
+import { THEORY_DOMAINS } from "@/lib/domains";
 import { QuestionStatusBadge } from "./question-status-badge";
 
 export function ReviewPanel({ 
@@ -110,17 +111,8 @@ export function ReviewPanel({
                     .sort((a, b) => new Date(b.reviewedAt).getTime() - new Date(a.reviewedAt).getTime());
                   const submissionCount = q.reviews?.length ? q.reviews.length + 1 : 1;
 
-                  const isCoding = Boolean(
-                    q.inputFormat?.trim() || 
-                    q.outputFormat?.trim() || 
-                    q.sampleInput?.trim() || 
-                    q.sampleOutput?.trim() || 
-                    q.hiddenTestCases?.trim() ||
-                    q.constraints?.trim() ||
-                    q.expectedTimeComplexity?.trim() ||
-                    q.expectedSpaceComplexity?.trim()
-                  );
-                  const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
+                  const isProject = Boolean(q.inputFormat?.trim() || q.outputFormat?.trim()) || (q.topic.name in THEORY_DOMAINS);
+                  const questionType = isProject ? "Project Definition / Idea / Prototype" : "Algorithmic Problem Solving Challenges";
 
                   return (
                     <div
@@ -196,17 +188,8 @@ export function ReviewPanel({
                     (a, b) => new Date(b.reviewedAt).getTime() - new Date(a.reviewedAt).getTime()
                   );
                   
-                  const isCoding = Boolean(
-                    q.inputFormat?.trim() || 
-                    q.outputFormat?.trim() || 
-                    q.sampleInput?.trim() || 
-                    q.sampleOutput?.trim() || 
-                    q.hiddenTestCases?.trim() ||
-                    q.constraints?.trim() ||
-                    q.expectedTimeComplexity?.trim() ||
-                    q.expectedSpaceComplexity?.trim()
-                  );
-                  const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
+                  const isProject = Boolean(q.inputFormat?.trim() || q.outputFormat?.trim()) || (q.topic.name in THEORY_DOMAINS);
+                  const questionType = isProject ? "Project Definition / Idea / Prototype" : "Algorithmic Problem Solving Challenges";
                   return (
                     <div
                       key={q.id}

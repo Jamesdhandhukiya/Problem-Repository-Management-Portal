@@ -25,8 +25,77 @@ import {
   updateUserSchema,
 } from "@/validations";
 
+export async function recordLoginAction(email: string) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+    if (!user) return { success: false, error: "User not found" };
+
+    const now = new Date();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: now },
+    });
+
+    const session = await prisma.sessionLog.create({
+      data: {
+        userId: user.id,
+        loginAt: now,
+      },
+    });
+
+    return { success: true, sessionId: session.id };
+  } catch (error) {
+    console.error("Failed to record login:", error);
+    return { success: false };
+  }
+}
+
+export async function recordLogoutAction(email: string) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+    if (!user) return { success: false, error: "User not found" };
+
+    const now = new Date();
+    
+    // Find the most recent active session for this user
+    const lastSession = await prisma.sessionLog.findFirst({
+      where: { 
+        userId: user.id,
+        logoutAt: null 
+      },
+      orderBy: { loginAt: 'desc' },
+    });
+
+    if (lastSession) {
+      const durationSeconds = Math.floor((now.getTime() - lastSession.loginAt.getTime()) / 1000);
+      await prisma.sessionLog.update({
+        where: { id: lastSession.id },
+        data: { 
+          logoutAt: now,
+          duration: durationSeconds 
+        },
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to record logout:", error);
+    return { success: false };
+  }
+}
+
 export async function signOutAction() {
   const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (session?.user?.email) {
+    await recordLogoutAction(session.user.email);
+  }
+
   await supabase.auth.signOut();
   redirect("/login");
 }
@@ -87,6 +156,7 @@ export async function updateQuestionAction(
   }
 
   try {
+    console.log("[DEBUG] updateQuestionAction topicId:", parsed.data.topicId);
     const question = await updateQuestion(
       user.id,
       questionId,
@@ -299,6 +369,7 @@ export async function updatePasswordAction(formData: FormData) {
     return { error: error.message };
   }
 
+  await recordLogoutAction(user.email);
   await supabase.auth.signOut();
   redirect("/login");
 }
@@ -463,10 +534,11 @@ export async function autoConfirmStudentEmailAction(email: string) {
   }
 
   try {
-    // Update email_confirmed_at and confirmed_at in Supabase's auth.users table directly.
+    // Update email_confirmed_at in Supabase's auth.users table directly.
+    // Note: confirmed_at is a generated column in Supabase and will update automatically.
     await prisma.$executeRawUnsafe(
       `UPDATE auth.users 
-       SET email_confirmed_at = NOW(), confirmed_at = NOW()
+       SET email_confirmed_at = NOW()
        WHERE email = $1`,
       email
     );
@@ -482,4 +554,97 @@ export async function autoConfirmStudentEmailAction(email: string) {
   }
 }
 
+export async function submitSuggestionAction(questionId: string, facultyId: string, content: string) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "STUDENT") {
+    return { error: "Unauthorized" };
+  }
 
+  if (!content || content.trim().length === 0) {
+    return { error: "Suggestion content cannot be empty" };
+  }
+
+  try {
+    const suggestion = await prisma.suggestion.create({
+      data: {
+        content: content.trim(),
+        questionId,
+        facultyId,
+      },
+    });
+
+    revalidatePath(`/student/questions/${questionId}`);
+    return { success: true, suggestion };
+  } catch (error) {
+    console.error("[SUBMIT_SUGGESTION]", error);
+    return { error: "Failed to submit suggestion" };
+  }
+}
+
+export async function importQuestionsAction(
+  questions: any[],
+  type: "ALGORITHMIC" | "PROJECT"
+) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "STAFF") {
+    return { error: "Unauthorized" };
+  }
+
+  let successCount = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < questions.length; i++) {
+    const raw = questions[i];
+    try {
+      let topicId = raw.topicId;
+      if (!topicId && raw.topicName) {
+        // First try to check if the provided name is actually a valid topic ID
+        let topic = await prisma.topic.findUnique({
+          where: { id: raw.topicName }
+        });
+
+        // If not found by ID, try searching by name
+        if (!topic) {
+          topic = await prisma.topic.findFirst({
+            where: { name: { equals: raw.topicName, mode: "insensitive" } }
+          });
+        }
+
+        // If still not found, create a new one
+        if (!topic) {
+          const slug = raw.topicName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+          topic = await prisma.topic.create({
+            data: {
+              name: raw.topicName,
+              slug: slug || "topic-" + Date.now(),
+            }
+          });
+        }
+        topicId = topic.id;
+      }
+
+      if (!topicId) {
+        throw new Error("Topic is required");
+      }
+
+      const questionData = {
+        ...raw,
+        topicId
+      };
+
+      const parsed = questionSchema.safeParse(questionData);
+      if (!parsed.success) {
+        throw new Error(parsed.error.issues.map(iss => `${iss.path.join('.')}: ${iss.message}`).join(", ") ?? "Invalid input");
+      }
+
+      // Automatically submit imported questions for review
+      await createQuestion(user.id, parsed.data, "SUBMITTED");
+      successCount++;
+    } catch (err: any) {
+      errors.push(`Row ${i + 1} (${raw.title || 'Untitled'}): ${err.message}`);
+    }
+  }
+
+  revalidatePath("/staff/questions");
+  return { success: true, count: successCount, errors };
+}

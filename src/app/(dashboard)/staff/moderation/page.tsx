@@ -36,33 +36,41 @@ export default async function StaffModerationPage() {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Question Title</TableHead>
-                <TableHead>Submissions</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Updated</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-center w-[80px] border-r border-slate-300 dark:border-slate-700">Sr. No.</TableHead>
+                <TableHead className="text-center min-w-[300px] border-r border-slate-300 dark:border-slate-700">Question Title</TableHead>
+                <TableHead className="text-center w-[120px] border-r border-slate-300 dark:border-slate-700">Submissions</TableHead>
+                <TableHead className="text-center w-[120px] border-r border-slate-300 dark:border-slate-700">Status</TableHead>
+                <TableHead className="text-center min-w-[160px] border-r border-slate-300 dark:border-slate-700">Last Updated</TableHead>
+                <TableHead className="text-center min-w-[200px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reviewedQuestions.map(q => {
+              {reviewedQuestions.map((q, index) => {
                 return (
                   <TableRow key={q.id}>
-                    <TableCell className="font-medium">
-                      {q.title}
+                    <TableCell className="font-medium text-center text-muted-foreground border-r border-slate-300 dark:border-slate-700">
+                      {index + 1}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="font-medium text-center border-r border-slate-300 dark:border-slate-700">
+                      <span className="max-w-[400px] mx-auto whitespace-normal break-words">{q.title}</span>
+                    </TableCell>
+                    <TableCell className="text-center text-muted-foreground border-r border-slate-300 dark:border-slate-700">
                       {q.reviews.length + (q.status === "SUBMITTED" ? 1 : 0)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center border-r border-slate-300 dark:border-slate-700">
                       <QuestionStatusBadge status={q.status as any} />
                     </TableCell>
-                    <TableCell>{format(new Date(q.updatedAt), "MMM d, yyyy 'at' h:mm a")}</TableCell>
-                    <TableCell>
-                      <ModerationActions 
-                        questionId={q.id} 
-                        status={q.status} 
-                        reviews={q.reviews || []} 
-                      />
+                    <TableCell className="text-center whitespace-nowrap border-r border-slate-300 dark:border-slate-700">
+                      {format(new Date(q.updatedAt), "MMM d, yyyy 'at' h:mm a")}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <ModerationActions 
+                          questionId={q.id} 
+                          status={q.status} 
+                          reviews={q.reviews || []} 
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

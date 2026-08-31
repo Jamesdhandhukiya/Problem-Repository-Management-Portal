@@ -8,7 +8,6 @@ import type {
   Review,
   ReviewStatus,
   SolvedQuestion,
-  Subtopic,
   Topic,
   User,
   UserRole,
@@ -25,7 +24,6 @@ export type {
   Review,
   ReviewStatus,
   SolvedQuestion,
-  Subtopic,
   Topic,
   User,
   UserRole,
@@ -34,7 +32,6 @@ export type {
 
 export type QuestionWithRelations = Question & {
   topic: Topic;
-  subtopic: Subtopic | null;
   createdBy: Pick<User, "id" | "name" | "email" | "domain" | "department">;
   reviews?: (Review & {
     moderator: Pick<User, "id" | "name" | "email">;
@@ -59,6 +56,7 @@ export type ChartDataPoint = {
   name: string;
   value: number;
   fill?: string;
+  department?: string | null;
 };
 
 export type SearchFilters = {

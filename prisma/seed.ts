@@ -5,19 +5,19 @@ import { randomUUID } from "crypto";
 const prisma = new PrismaClient();
 
 const TOPICS = [
-  { name: "DSA", slug: "dsa", subtopics: ["Arrays", "Linked Lists", "Trees", "Graphs", "Dynamic Programming"] },
-  { name: "DBMS", slug: "dbms", subtopics: ["SQL", "Normalization", "Transactions", "Indexing"] },
-  { name: "OS", slug: "os", subtopics: ["Processes", "Memory Management", "Scheduling", "Deadlocks"] },
-  { name: "CN", slug: "cn", subtopics: ["TCP/IP", "Routing", "DNS", "HTTP"] },
-  { name: "OOP", slug: "oop", subtopics: ["Inheritance", "Polymorphism", "Design Patterns"] },
-  { name: "Java", slug: "java", subtopics: ["Collections", "Streams", "Concurrency"] },
-  { name: "Python", slug: "python", subtopics: ["Data Structures", "Decorators", "Async"] },
-  { name: "JavaScript", slug: "javascript", subtopics: ["Closures", "Promises", "ES6+"] },
-  { name: "React", slug: "react", subtopics: ["Hooks", "State Management", "Performance"] },
-  { name: "NodeJS", slug: "nodejs", subtopics: ["Express", "Event Loop", "APIs"] },
-  { name: "DevOps", slug: "devops", subtopics: ["CI/CD", "Docker", "Kubernetes"] },
-  { name: "Cloud Computing", slug: "cloud-computing", subtopics: ["AWS", "Azure", "Serverless"] },
-  { name: "AI/ML", slug: "ai-ml", subtopics: ["Neural Networks", "NLP", "Computer Vision"] },
+  { name: "DSA", slug: "dsa" },
+  { name: "DBMS", slug: "dbms" },
+  { name: "OS", slug: "os" },
+  { name: "CN", slug: "cn" },
+  { name: "OOP", slug: "oop" },
+  { name: "Java", slug: "java" },
+  { name: "Python", slug: "python" },
+  { name: "JavaScript", slug: "javascript" },
+  { name: "React", slug: "react" },
+  { name: "NodeJS", slug: "nodejs" },
+  { name: "DevOps", slug: "devops" },
+  { name: "Cloud Computing", slug: "cloud-computing" },
+  { name: "AI/ML", slug: "ai-ml" },
 ];
 
 const SEED_USERS = [
@@ -46,14 +46,6 @@ async function main() {
       update: {},
       create: { name: topic.name, slug: topic.slug },
     });
-
-    for (const sub of topic.subtopics) {
-      await prisma.subtopic.upsert({
-        where: { topicId_name: { topicId: created.id, name: sub } },
-        update: {},
-        create: { name: sub, topicId: created.id },
-      });
-    }
   }
 
   console.log("Seeding users...");
@@ -240,11 +232,6 @@ async function main() {
 
 
   const dsaTopic = await prisma.topic.findUnique({ where: { slug: "dsa" } });
-  const arraysSub = dsaTopic
-    ? await prisma.subtopic.findFirst({
-        where: { topicId: dsaTopic.id, name: "Arrays" },
-      })
-    : null;
 
   if (userMap.STAFF && dsaTopic) {
     const existingQ = await prisma.question.findFirst({
@@ -261,7 +248,7 @@ async function main() {
               "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
             difficulty: "EASY",
             topicId: dsaTopic.id,
-            subtopicId: arraysSub?.id,
+
             constraints: "2 <= nums.length <= 10^4",
             inputFormat: "First line: n, target\nSecond line: n integers",
             outputFormat: "Two indices separated by space",
@@ -281,7 +268,7 @@ async function main() {
               "Given the root of a binary tree, return the level order traversal of its nodes' values.",
             difficulty: "MEDIUM",
             topicId: dsaTopic.id,
-            subtopicId: arraysSub?.id,
+
             constraints: "The number of nodes is in range [0, 2000]",
             tags: ["tree", "bfs"],
             companyTags: ["Microsoft"],

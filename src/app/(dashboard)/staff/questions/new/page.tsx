@@ -10,14 +10,6 @@ export default async function NewQuestionPage(props: { searchParams: Promise<{ t
   const type = searchParams?.type;
 
   const initialData: any = {};
-  if (type === "code") {
-    initialData.statement = "**Problem Description:**\n\n\n**Input:**\n\n\n**Output:**\n\n";
-    initialData.inputFormat = "Explain the input format here...";
-    initialData.outputFormat = "Explain the output format here...";
-  } else if (type === "theory") {
-    initialData.statement = "**Question:**\n\n\n**Explain the core concepts:**\n\n";
-  }
-
   return (
     <div className="space-y-6">
       <div>

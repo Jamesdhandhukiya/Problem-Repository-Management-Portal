@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { DIFFICULTY_LABELS } from "@/types";
 import { format } from "date-fns";
-import { CODING_DOMAINS } from "@/lib/domains";
+import { CODING_DOMAINS, THEORY_DOMAINS } from "@/lib/domains";
 import { QuestionStatusBadge } from "./question-status-badge";
 import { 
   ExternalLink, 
@@ -24,14 +24,17 @@ import {
 export function QuestionDetail({
   question,
   showReviews = false,
+  showAuthor = true,
   actions,
 }: {
   question: QuestionWithRelations;
   showReviews?: boolean;
+  showAuthor?: boolean;
   actions?: React.ReactNode;
 }) {
-  const isCoding = question.topic.name in CODING_DOMAINS;
-  const questionType = isCoding ? "Algorithmic Problem Solving Challenges" : "Project Definition / Idea / Prototype";
+  const isProject = Boolean(question.inputFormat?.trim() || question.outputFormat?.trim()) || (question.topic.name in THEORY_DOMAINS);
+  const questionType = isProject ? "Project Definition / Idea / Prototype" : "Algorithmic Problem Solving Challenges";
+  const isCoding = !isProject;
 
   // Difficulty badge colors
   const difficultyColors = {
@@ -48,16 +51,11 @@ export function QuestionDetail({
           {questionType === "Algorithmic Problem Solving Challenges" ? <Code2 className="mr-1 h-3.5 w-3.5 inline" /> : <FileText className="mr-1 h-3.5 w-3.5 inline" />}
           {questionType}
         </Badge>
-        <Badge variant="outline" className="border-slate-200 text-slate-700 dark:text-slate-300 px-2.5 py-1">
-          <span className="font-semibold text-slate-500 mr-1.5 uppercase text-[10px] tracking-wider">Domain:</span>
+        <Badge className="bg-slate-900 hover:bg-slate-800 text-slate-50 border-slate-900 dark:bg-slate-50 dark:hover:bg-slate-200 dark:text-slate-900 px-2.5 py-1 shadow-sm">
+          <span className="font-bold text-slate-400 dark:text-slate-500 mr-1.5 uppercase text-[10px] tracking-wider">Domain:</span>
           {question.topic.name}
         </Badge>
-        {question.subtopic && (
-          <Badge variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 px-2.5 py-1">
-            <span className="font-semibold text-slate-500 mr-1.5 uppercase text-[10px] tracking-wider">Sub-Domain:</span>
-            {question.subtopic.name}
-          </Badge>
-        )}
+
         <Badge variant="outline" className={`font-semibold ${difficultyColors[question.difficulty]}`}>
           {DIFFICULTY_LABELS[question.difficulty]}
         </Badge>
@@ -300,14 +298,18 @@ export function QuestionDetail({
 
       {/* Submission Metadata */}
       <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground bg-muted/10 p-3 rounded-lg border border-dashed">
-        <div className="flex items-center gap-1.5">
-          <User className="h-4 w-4 text-primary/70" />
-          <span>Faculty: <strong className="text-foreground font-medium">{question.createdBy.name}</strong></span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Building className="h-4 w-4 text-primary/70" />
-          <span>Department: <strong className="text-foreground font-medium">{question.createdBy.department || "Unassigned"}</strong></span>
-        </div>
+        {showAuthor !== false && (
+          <>
+            <div className="flex items-center gap-1.5">
+              <User className="h-4 w-4 text-primary/70" />
+              <span>Faculty: <strong className="text-foreground font-medium">{question.createdBy.name}</strong></span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Building className="h-4 w-4 text-primary/70" />
+              <span>Department: <strong className="text-foreground font-medium">{question.createdBy.department || "Unassigned"}</strong></span>
+            </div>
+          </>
+        )}
         <div className="flex items-center gap-1.5">
           <Calendar className="h-4 w-4 text-primary/70" />
           <span>Submitted on: <strong className="text-foreground font-medium">{format(new Date(question.createdAt), "MMMM d, yyyy")}</strong></span>

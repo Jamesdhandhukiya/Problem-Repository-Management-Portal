@@ -18,15 +18,16 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith(route)
   );
   const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
+  const isServerAction = request.headers.has("next-action");
 
-  if (!user && !isPublicRoute && pathname !== "/") {
+  if (!user && !isPublicRoute && pathname !== "/" && !isServerAction) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  if (user && isAuthRoute && !isServerAction) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

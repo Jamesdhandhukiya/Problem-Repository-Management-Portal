@@ -14,6 +14,7 @@ import {
   User as UserIcon,
   Users,
   GraduationCap,
+  MessageSquare,
 } from "lucide-react";
 import type { User } from "@prisma/client";
 import { signOutAction } from "@/app/actions";
@@ -42,6 +43,7 @@ const NAV_BY_ROLE: Record<User["role"], NavItem[]> = {
   ADMIN: [
     { title: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { title: "Questions", href: "/admin/questions", icon: BookOpen },
+    { title: "Suggestions", href: "/admin/suggestions", icon: MessageSquare },
     { title: "Staff", href: "/admin/staff", icon: Users },
     { title: "Moderators", href: "/admin/moderators", icon: Users },
     { title: "Students", href: "/admin/students", icon: GraduationCap },
@@ -52,6 +54,7 @@ const NAV_BY_ROLE: Record<User["role"], NavItem[]> = {
   STAFF: [
     { title: "Dashboard", href: "/staff", icon: LayoutDashboard },
     { title: "My Questions", href: "/staff/questions", icon: BookOpen },
+    { title: "Suggestions", href: "/staff/suggestions", icon: MessageSquare },
     { title: "Moderation", href: "/staff/moderation", icon: ClipboardCheck },
   ],
   MODERATOR: [

@@ -19,7 +19,6 @@ export type QuestionInput = {
   statement: string;
   difficulty: Difficulty;
   topicId: string;
-  subtopicId?: string | null;
   constraints?: string;
   inputFormat?: string;
   outputFormat?: string;
@@ -36,7 +35,6 @@ export type QuestionInput = {
 
 const questionInclude = {
   topic: true,
-  subtopic: true,
   createdBy: { select: { id: true, name: true, email: true, domain: true, department: true } },
   reviews: {
     include: { moderator: { select: { id: true, name: true, email: true } } },
@@ -49,30 +47,33 @@ export async function createQuestion(
   data: QuestionInput,
   status: "DRAFT" | "SUBMITTED" = "DRAFT"
 ) {
-  const topicName = data.topicId;
-  const topicSlug = topicName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  const topic = await prisma.topic.upsert({
-    where: { slug: topicSlug },
-    update: { name: topicName },
-    create: { name: topicName, slug: topicSlug },
-  });
 
-  let finalSubtopicId = null;
-  if (data.subtopicId) {
-    const subtopicName = data.subtopicId;
-    const subtopic = await prisma.subtopic.upsert({
-      where: { topicId_name: { topicId: topic.id, name: subtopicName } },
-      update: {},
-      create: { name: subtopicName, topicId: topic.id },
-    });
-    finalSubtopicId = subtopic.id;
+  let finalTopicId = data.topicId;
+  if (finalTopicId) {
+    let topic = await prisma.topic.findUnique({ where: { id: finalTopicId } });
+    if (!topic) {
+      topic = await prisma.topic.findFirst({
+        where: { name: { equals: finalTopicId, mode: "insensitive" } }
+      });
+      if (topic) {
+        finalTopicId = topic.id;
+      } else {
+        const slug = finalTopicId.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        topic = await prisma.topic.create({
+          data: {
+            name: finalTopicId,
+            slug: slug || "topic-" + Date.now(),
+          }
+        });
+        finalTopicId = topic.id;
+      }
+    }
   }
 
   const question = await prisma.question.create({
     data: {
       ...data,
-      topicId: topic.id,
-      subtopicId: finalSubtopicId,
+      topicId: finalTopicId,
       status,
       createdById: userId,
     },
@@ -110,30 +111,25 @@ export async function updateQuestion(
   if (!existing) throw new Error("Question not found");
 
   let finalTopicId = data.topicId;
-  if (data.topicId) {
-    const topicName = data.topicId;
-    const topicSlug = topicName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const topic = await prisma.topic.upsert({
-      where: { slug: topicSlug },
-      update: { name: topicName },
-      create: { name: topicName, slug: topicSlug },
-    });
-    finalTopicId = topic.id;
-  }
 
-  let finalSubtopicId = undefined;
-  if (data.subtopicId !== undefined) {
-    if (data.subtopicId === null) {
-      finalSubtopicId = null;
-    } else {
-      const topicToUse = finalTopicId || existing.topicId;
-      const subtopicName = data.subtopicId;
-      const subtopic = await prisma.subtopic.upsert({
-        where: { topicId_name: { topicId: topicToUse, name: subtopicName } },
-        update: {},
-        create: { name: subtopicName, topicId: topicToUse },
+  if (finalTopicId) {
+    let topic = await prisma.topic.findUnique({ where: { id: finalTopicId } });
+    if (!topic) {
+      topic = await prisma.topic.findFirst({
+        where: { name: { equals: finalTopicId, mode: "insensitive" } }
       });
-      finalSubtopicId = subtopic.id;
+      if (topic) {
+        finalTopicId = topic.id;
+      } else {
+        const slug = finalTopicId.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        topic = await prisma.topic.create({
+          data: {
+            name: finalTopicId,
+            slug: slug || "topic-" + Date.now(),
+          }
+        });
+        finalTopicId = topic.id;
+      }
     }
   }
 
@@ -142,7 +138,6 @@ export async function updateQuestion(
     data: {
       ...data,
       ...(finalTopicId ? { topicId: finalTopicId } : {}),
-      ...(finalSubtopicId !== undefined ? { subtopicId: finalSubtopicId } : {}),
       ...(status ? { status } : {}),
     },
     include: questionInclude,
@@ -360,7 +355,6 @@ export async function getStudentSolved(studentId: string) {
 
 export async function getTopics() {
   return prisma.topic.findMany({
-    include: { subtopics: true },
     orderBy: { name: "asc" },
   });
 }

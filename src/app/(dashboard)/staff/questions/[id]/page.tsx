@@ -6,6 +6,8 @@ import { ModeratorQuestionView } from "@/components/questions/moderator-question
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { QuestionSuggestions } from "@/components/questions/question-suggestions";
 
 export default async function StaffQuestionDetailPage({
   params,
@@ -23,6 +25,11 @@ export default async function StaffQuestionDetailPage({
   const topics = await getTopics();
   const canEdit = ["DRAFT", "CHANGES_REQUIRED", "REJECTED"].includes(question.status);
 
+  const suggestions = await prisma.suggestion.findMany({
+    where: { questionId: id, facultyId: user.id },
+    orderBy: { createdAt: "desc" },
+  });
+
   if (!canEdit) {
     return (
       <div className="py-6 max-w-4xl mx-auto space-y-6">
@@ -33,6 +40,7 @@ export default async function StaffQuestionDetailPage({
           </Link>
         </Button>
         <ModeratorQuestionView question={question as any} />
+        <QuestionSuggestions suggestions={suggestions} isAdmin={false} />
       </div>
     );
   }
@@ -53,7 +61,7 @@ export default async function StaffQuestionDetailPage({
           statement: question.statement,
           difficulty: question.difficulty,
           topicId: question.topic?.name || question.topicId,
-          subtopicId: question.subtopic?.name || question.subtopicId,
+
           constraints: question.constraints ?? undefined,
           inputFormat: question.inputFormat ?? undefined,
           outputFormat: question.outputFormat ?? undefined,
@@ -69,6 +77,7 @@ export default async function StaffQuestionDetailPage({
         }}
         userDomain={user.domain || user.department}
       />
+      <QuestionSuggestions suggestions={suggestions} isAdmin={false} />
     </div>
   );
 }

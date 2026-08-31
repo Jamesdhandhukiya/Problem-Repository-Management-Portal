@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getQuestionById } from "@/services/question.service";
 import { getCurrentUser } from "@/lib/auth";
 import { QuestionDetail } from "@/components/questions/question-detail";
+import { prisma } from "@/lib/prisma";
+import { QuestionSuggestions } from "@/components/questions/question-suggestions";
 
 export default async function AdminQuestionDetailPage({
   params,
@@ -20,10 +22,24 @@ export default async function AdminQuestionDetailPage({
     notFound();
   }
 
+  const suggestions = await prisma.suggestion.findMany({
+    where: { questionId: id },
+    include: {
+      faculty: {
+        select: {
+          name: true,
+          department: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">{question.title}</h1>
       <QuestionDetail question={question} />
+      <QuestionSuggestions suggestions={suggestions} isAdmin={true} />
     </div>
   );
 }

@@ -11,10 +11,22 @@ export default async function SearchPage() {
 
   const topics = await getTopics();
 
+  const getBasePath = (role: string) => {
+    switch (role) {
+      case "ADMIN": return "/admin/questions";
+      case "STAFF": return "/staff/questions";
+      case "MODERATOR": return "/moderator/reviews";
+      default: return "/student/questions";
+    }
+  };
+
   return (
     <DashboardLayout user={user}>
       <Suspense>
-        <GlobalSearch topics={topics.map((t) => ({ id: t.id, name: t.name }))} />
+        <GlobalSearch 
+          topics={topics.map((t) => ({ id: t.id, name: t.name }))} 
+          basePath={getBasePath(user.role)}
+        />
       </Suspense>
     </DashboardLayout>
   );
