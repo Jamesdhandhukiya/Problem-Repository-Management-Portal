@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, Loader2, FileSpreadsheet, Download } from "lucide-react";
+import { Upload, Loader2, FileSpreadsheet, Download, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { importQuestionsAction } from "@/app/actions";
 
 // CSV parser helper
@@ -68,6 +69,8 @@ export function ImportQuestionsDialog() {
   const [loading, setLoading] = useState(false);
   const [questionType, setQuestionType] = useState<"ALGORITHMIC" | "PROJECT" | "">("");
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -111,20 +114,27 @@ export function ImportQuestionsDialog() {
     document.body.removeChild(link);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImportErrors([]);
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (file) {
+      setSelectedFile(file);
+    } else {
+      setSelectedFile(null);
+    }
+  };
+
+  const processImport = async () => {
+    if (!selectedFile) return;
 
     if (!questionType) {
       toast.error("Please select a question type first");
-      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     setLoading(true);
     try {
-      const text = await file.text();
+      const text = await selectedFile.text();
       let delimiter = ",";
       if (text.includes(";") && !text.includes(",")) delimiter = ";";
       else if (text.includes("\t") && !text.includes(",")) delimiter = "\t";
@@ -224,11 +234,21 @@ export function ImportQuestionsDialog() {
     }
     
     setLoading(false);
+    setSelectedFile(null);
+    setAcknowledged(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) setImportErrors([]); }}>
+    <Dialog open={open} onOpenChange={(v) => { 
+      setOpen(v); 
+      if(!v) {
+        setImportErrors([]);
+        setSelectedFile(null);
+        setAcknowledged(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    }}>
       <DialogTrigger render={
         <Button variant="outline">
           <Upload className="mr-2 h-4 w-4" />
@@ -270,29 +290,81 @@ export function ImportQuestionsDialog() {
             </div>
           )}
 
-          <div className="space-y-2">
-            <input
-              type="file"
-              accept=".csv"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <Button
-              className="w-full"
-              disabled={loading || !questionType}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <input
+                type="file"
+                accept=".csv"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              {selectedFile ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center px-3 py-2 border rounded-md text-sm truncate bg-muted/50">
+                    <FileSpreadsheet className="mr-2 h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{selectedFile.name}</span>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setAcknowledged(false);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    disabled={loading}
+                    title="Cancel file selection"
+                    type="button"
+                  >
+                    <X className="h-4 w-4 text-muted-foreground hover:text-destructive transition-colors" />
+                  </Button>
+                </div>
               ) : (
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={loading || !questionType}
+                  onClick={() => fileInputRef.current?.click()}
+                  type="button"
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Choose CSV File
+                </Button>
               )}
-              {loading ? "Importing..." : "Select CSV File"}
-            </Button>
-            <p className="text-xs text-muted-foreground text-center">
-              Rows missing required fields (Title, Statement, Difficulty, Topic) will be skipped.
-            </p>
+              <p className="text-xs text-muted-foreground text-center">
+                Rows missing required fields (Title, Statement, Difficulty, Topic) will be skipped.
+              </p>
+            </div>
+
+            {selectedFile && (
+              <div className="space-y-4 pt-2 border-t">
+                <div className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <Checkbox
+                    id="acknowledge"
+                    checked={acknowledged}
+                    onCheckedChange={(checked) => setAcknowledged(checked as boolean)}
+                  />
+                  <div className="space-y-1 leading-none">
+                    <Label htmlFor="acknowledge">
+                      I acknowledge that this action will import the selected records.
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Please ensure the data follows the correct template format.
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full"
+                  disabled={loading || !acknowledged}
+                  onClick={processImport}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {loading ? "Importing..." : "Submit Import"}
+                </Button>
+              </div>
+            )}
           </div>
           
           {importErrors.length > 0 && (
