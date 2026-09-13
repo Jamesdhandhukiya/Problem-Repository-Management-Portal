@@ -14,7 +14,7 @@ const reports = [
   {
     id: "questions",
     title: "Questions Report",
-    description: "Export all questions with topic, difficulty, status, and author.",
+    description: "Export complete question details including description, solution, constraints, test cases, topic, difficulty, and author department.",
   },
   {
     id: "faculty",

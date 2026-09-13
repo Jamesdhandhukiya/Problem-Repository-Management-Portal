@@ -270,7 +270,7 @@ export async function getQuestionsReportData() {
   return prisma.question.findMany({
     include: {
       topic: true,
-      createdBy: { select: { name: true, email: true } },
+      createdBy: { select: { name: true, department: true } },
     },
     orderBy: { createdAt: "desc" },
   });
